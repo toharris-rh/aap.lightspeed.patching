@@ -1,0 +1,89 @@
+# aap.lightspeed.patching — Claude Guidelines
+
+Automated, AI-assisted RHEL patching that combines **Red Hat Lightspeed**,
+**Ansible Automation Platform (AAP)**, and **Event-Driven Ansible (EDA)** with
+full **ServiceNow ITSM** integration. Read [`README.md`](README.md) and
+[`docs/servicenow-integration.md`](docs/servicenow-integration.md) first — they
+hold the architecture and the as-built record.
+
+## Skills in this repo
+
+Repo-local Claude skills live under [`.claude/skills/`](.claude/skills/) and
+ship with the repo (`.claude/*` is gitignored **except** `!.claude/skills/`).
+Load the relevant skill before working in its area:
+
+| Skill | Use when |
+|-------|----------|
+| [`.claude/skills/servicenow/SKILL.md`](.claude/skills/servicenow/SKILL.md) | ServiceNow / SNow, change requests, incidents, CMDB, work notes, the Insights→EDA→AAP→ServiceNow flow |
+
+When you add a new skill, add a row here so future sessions discover it.
+
+## Credentials & environment
+
+- Real credentials live in `docs/dev-environment.sh` (**gitignored** — never
+  commit, never paste into chat). The committed template is
+  `docs/dev-environment.sh.example`; copy it and fill in values.
+- Load everything in one shell invocation — env vars do **not** persist across
+  separate Bash tool calls:
+  ```bash
+  source docs/dev-environment.sh && ansible-playbook playbooks/servicenow/<play>.yml
+  ```
+- **Use the exact `SN_USERNAME` from `docs/dev-environment.sh`** — a
+  plausible-but-wrong username variant returns HTTP 401 `User Not
+  Authenticated`, not a clear error.
+- **Never print `SN_PASSWORD` / `EDA_EVENT_STREAM_TOKEN`** — check by name:
+  `printenv SN_PASSWORD >/dev/null && echo set`.
+
+## Shared ServiceNow instance
+
+The ServiceNow instance (`SN_HOST` in `docs/dev-environment.sh`) is **shared**
+with ~33 other SEs. Scope every write
+by `sys_id`, never by name alone. Do not create or alter global/instance-wide
+objects (users, store apps, system properties) without explicit confirmation —
+they affect everyone on the instance.
+
+## Project conventions
+
+- **No project-local `ansible.cfg`** — the user's `~/.ansible.cfg` holds the
+  Automation Hub `galaxy_server` token shared across repos and teammates. A
+  project-local cfg shadows it and breaks `ansible-galaxy collection install`
+  for Red Hat certified content. Set inventory/options via CLI flags or env vars.
+- **`ansible.platform` over `ansible.controller`** — `ansible.controller` is
+  legacy; never use it in new code.
+- **Always delete AAP tokens** — any playbook that creates a token must delete
+  it in an `always:` block so stale tokens don't accumulate.
+- **CHANGELOG.md** — every change adds an entry under Added / Changed / Fixed /
+  Removed. (Note: the current CHANGELOG header still references the upstream
+  template `aap.eda.dynatrace.push` — correct it when next editing that file.)
+- **Additive only** — don't remove old capabilities until replacements are proven.
+- **One concern per PR** — group changes by shared root cause.
+- **Never put customer info in tracked files** — no customer names, RHDP URLs,
+  cluster/instance IDs, passwords, or tokens in any committed file, commit
+  message, PR, or issue. Use generic placeholders. The live host and any creds
+  belong only in the gitignored `docs/dev-environment.sh`.
+- **Images go in `docs/images/`** (committed, not gitignored).
+  `docs/dev-environment.sh` is the only gitignored file under `docs/`.
+
+## Issue tracking (GitHub)
+
+This repo lives on GitHub (`toharris-rh/aap.lightspeed.patching`). Follow
+**document-before-fixing**: open a GitHub Issue describing the problem before
+making code changes, and **label every new issue** with all labels that fit
+(`gh label list --repo toharris-rh/aap.lightspeed.patching`).
+
+## Two integration paths — keep them straight
+
+This repo implements the **EDA path** (Insights webhook → AAP EDA event stream →
+AAP workflow → ServiceNow via `playbooks/servicenow/*`). It is distinct from the
+**native HCC→ServiceNow** integration (the "Flow Templates for Red Hat Insights"
+ServiceNow store app, `x_rhtpp_rh_webhook`), which routes Insights events
+straight into ServiceNow without AAP. See the servicenow skill for the full
+comparison and the current install state of the shared instance.
+
+## Repo status (as of 2026-06-12)
+
+Early-stage: docs + ServiceNow callback playbooks + EDA rulebook/CaC files
+exist, but there is **no `aap_config/load.yml` CaC entrypoint** and **no
+`collections/requirements.yml`** yet. The README references an
+`ansible.cfg.example` that does not exist. Verify what's present before assuming
+a CaC apply path.

@@ -13,9 +13,12 @@ collections/ansible_collections/
 # (The repo's canonical secret file is docs/dev-environment.sh — see below.)
 .envrc
 
-# Local dev environment — fill in from docs/dev-environment.sh.example (never commit).
-# Holds the real ServiceNow + AAP credentials; must stay out of this public repo.
-docs/dev-environment.sh
+# Local dev environment secrets — never commit. Holds the real ServiceNow + AAP
+# credentials and must stay out of this public repo. No leading slash, so this
+# matches dev-environment.sh in ANY directory (e.g. docs/dev-environment.sh).
+# The committed template docs/dev-environment.sh.example is a different filename
+# and is NOT matched.
+dev-environment.sh
 
 # Claude Code per-project state (memory, transcripts, settings) — ignored,
 # EXCEPT repo-based skills, which ship with the repo.
