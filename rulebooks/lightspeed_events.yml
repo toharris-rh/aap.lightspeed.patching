@@ -1,0 +1,59 @@
+---
+# ============================================================================
+# rulebooks/lightspeed_events.yml
+# ============================================================================
+# Event-Driven Ansible rulebook. Listens for Red Hat Insights / Lightspeed
+# advisory events forwarded by the "Lightspeed Patching - Insights Event Stream"
+# event stream and launches the patch workflow.
+#
+# Flow:
+#   Red Hat Insights webhook → AAP EDA event stream →
+#   THIS rulebook (source __SOURCE_1) → run_workflow_template
+#
+# The activation injects advisory filter vars (severity, category) from
+# aap_config/group_vars/all.yml so they live in CaC, not hard-coded here.
+# Only events matching the configured severity/category trigger the workflow,
+# preventing runaway patching on low-priority advisories.
+#
+# Event payload shape (Red Hat Insights advisory webhook):
+#   event.payload.advisory_id      e.g. RHSA-2025:1234
+#   event.payload.advisory_type    e.g. Security
+#   event.payload.severity         e.g. Critical | Important | Moderate | Low
+#   event.payload.affected_hosts   comma-separated FQDNs
+# ============================================================================
+
+- name: Listen for Red Hat Insights advisory events
+  hosts: all
+  sources:
+    - ansible.eda.webhook:
+        host: 0.0.0.0
+        port: 5000
+
+  rules:
+    - name: Patch Critical and Important security advisories automatically
+      condition: >-
+        event.payload.advisory_type == "Security" and
+        event.payload.severity in ["Critical", "Important"]
+      action:
+        run_workflow_template:
+          name: "Lightspeed Patching - Instantaneous Patch"
+          organization: "{{ my_organization }}"
+          job_args:
+            extra_vars:
+              advisory_id: "{{ event.payload.advisory_id }}"
+              advisory_severity: "{{ event.payload.severity }}"
+              affected_hosts: "{{ event.payload.affected_hosts }}"
+
+    - name: Log Moderate advisories for manual review
+      condition: >-
+        event.payload.advisory_type == "Security" and
+        event.payload.severity == "Moderate"
+      action:
+        run_job_template:
+          name: "Lightspeed Patching - Log Advisory for Review"
+          organization: "{{ my_organization }}"
+          job_args:
+            extra_vars:
+              advisory_id: "{{ event.payload.advisory_id }}"
+              advisory_severity: "{{ event.payload.severity }}"
+              affected_hosts: "{{ event.payload.affected_hosts }}"

@@ -1,0 +1,14 @@
+---
+# ============================================================================
+# aap_config/files/eda_event_streams.yml
+# ============================================================================
+# EDA event stream definition for the Red Hat Insights advisory webhook.
+# The external URL is auto-assigned by AAP EDA when the stream is created.
+# Configure Red Hat Insights to POST to this URL with the bearer token.
+# ============================================================================
+
+eda_event_streams:
+  - name: "Lightspeed Patching - Insights Event Stream"
+    credential_name: "Lightspeed Patching - Insights Event Stream"
+    event_stream_type: "Red Hat Insights"
+    organization_name: "{{ my_organization }}"

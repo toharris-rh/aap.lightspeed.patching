@@ -2,21 +2,22 @@
 
 > **Instantaneous Patching — Patching in the Mythos era**
 
-Automated, AI-assisted patching workflow combining **Red Hat Lightspeed**, **Ansible Automation Platform (AAP)**, and **Event-Driven Ansible (EDA)** to identify, remediate, and report on CVEs and advisories — all with full ITSM and notification integration.
+Automated, AI-assisted patching workflow combining **Red Hat Lightspeed**,
+**Ansible Automation Platform (AAP)**, and **Event-Driven Ansible (EDA)** to
+identify, remediate, and record CVEs and advisories — with full ITSM integration.
 
 ---
 
 ## Architecture
 
+![Instantaneous Patching Architecture](docs/images/instantaneous-patching-architecture.png)
+
 ```
 1. RHEL systems register to Red Hat Lightspeed
 2. CVE / Advisor identified by Lightspeed
-3. AAP triggers patch job template against affected hosts
-4. ITSM ticket created/updated (ServiceNow | Jira)
-5. Operational status notifications sent (Slack | Microsoft Teams | Email)
+3. AAP runs patch job template against affected hosts
+4. ITSM Change Request created and updated (ServiceNow)
 ```
-
-![Instantaneous Patching Architecture](docs/images/instantaneous-patching-architecture.png)
 
 ---
 
@@ -27,8 +28,7 @@ Automated, AI-assisted patching workflow combining **Red Hat Lightspeed**, **Ans
 | AI / Advisory | Red Hat Lightspeed |
 | Automation | Ansible Automation Platform (AAP), Event-Driven Ansible |
 | Patching Target | Red Hat Enterprise Linux (RHEL) |
-| ITSM | ServiceNow, Jira |
-| Notifications | Slack, Microsoft Teams, Email |
+| ITSM | ServiceNow |
 
 ---
 
@@ -50,7 +50,9 @@ cp ansible.cfg.example ansible.cfg
 # Edit ansible.cfg with your AAP controller URL and credentials
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and [docs/](docs/) for full documentation.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and
+[docs/servicenow-integration.md](docs/servicenow-integration.md) for the
+full ITSM integration guide.
 
 ---
 

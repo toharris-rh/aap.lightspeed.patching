@@ -1,0 +1,66 @@
+---
+# ============================================================================
+# playbooks/servicenow/notice_patch_started.yml
+# ============================================================================
+# Transitions the Change Request to "Implement" state and posts a work note
+# confirming patching is underway. Runs immediately after create_change_request
+# (or receives change_request_sys_id from it via set_stats) so the ITSM record
+# reflects live status while hosts are being patched.
+#
+# Mirrors the dc1.azure notice_ritm_started pattern — a fast first-node update
+# so approvers/operators see activity within seconds.
+#
+# Consumed inputs (workflow artifacts from create_change_request.yml):
+#   change_request_sys_id   sys_id of the CHG record
+#   change_request_number   CHG number (for the work note)
+#   advisory_id             advisory being patched
+#   affected_hosts          hosts being patched
+#
+# Credential: Lightspeed Patching - ServiceNow  (SN_* env vars)
+# ============================================================================
+
+- name: Notify ServiceNow that patching has started
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    aap_base_url: "{{ lookup('ansible.builtin.env', 'CONTROLLER_HOST') }}"
+    snow_base_url: "{{ lookup('ansible.builtin.env', 'SN_HOST') }}"
+    wf_job_id: "{{ awx_workflow_job_id | default(tower_workflow_job_id | default('')) }}"
+    aap_job_url: "{{ aap_base_url }}/execution/jobs/workflow/{{ wf_job_id }}/output"
+    patch_start_comment: |-
+      Automated patching has started in Ansible Automation Platform.
+
+      Advisory: {{ advisory_id | default('n/a') }}
+      Hosts:    {{ affected_hosts | default('see job details') }}
+
+      This change request will update again when patching completes.
+    patch_start_worknote: |-
+      Automation started in Ansible Automation Platform.
+      Workflow Job: #{{ wf_job_id | default('n/a') }}
+      Live status:  {{ aap_job_url }}
+
+  tasks:
+    - name: Fail clearly if CHG sys_id was not threaded
+      ansible.builtin.assert:
+        that:
+          - change_request_sys_id is defined
+          - change_request_sys_id | string | length > 0
+        fail_msg: "change_request_sys_id is required — ensure create_change_request.yml ran first."
+
+    - name: Transition CHG to Implement and post work note
+      servicenow.itsm.api:
+        action: patch
+        resource: change_request
+        sys_id: "{{ change_request_sys_id }}"
+        data:
+          state: "1"
+          comments: "{{ patch_start_comment }}"
+          work_notes: "{{ patch_start_worknote }}"
+
+    - name: Publish reverse link (AAP job → ServiceNow CHG)
+      ansible.builtin.set_stats:
+        data:
+          snow_chg_url: "{{ snow_base_url }}/nav_to.do?uri=change_request.do?sys_id={{ change_request_sys_id }}"
+          snow_chg_number: "{{ change_request_number | default('') }}"

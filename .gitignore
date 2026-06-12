@@ -14,7 +14,7 @@ collections/ansible_collections/
 .envrc
 
 # Local dev environment — fill in from docs/dev-environment.sh.example (never commit).
-# Holds the real Dynatrace tenant id + tokens; must stay out of this public repo.
+# Holds the real ServiceNow + AAP credentials; must stay out of this public repo.
 docs/dev-environment.sh
 
 # Claude Code per-project state (memory, transcripts, settings) — ignored,
