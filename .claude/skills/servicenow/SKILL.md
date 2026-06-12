@@ -151,28 +151,41 @@ ansible-playbook playbooks/servicenow/create_change_request.yml \
 ## Native HCC→ServiceNow integration — as-built / how-to
 
 The chosen integration on this instance is the **native** path (Insights →
-ServiceNow directly, no AAP). Per-SE setup:
+ServiceNow directly, no AAP).
 
-1. **Per-SE integration user** — one ServiceNow user per SE
-   (`rh_insights_<handle>`), each granted `x_rhtpp_rh_webhook.rest`, with
-   `web_service_access_only=true` and `internal_integration_user=true`. Create
-   via REST as admin. Distinct secret per SE → independently rotatable +
-   attributable. (A template user `rh_insights_integration` already exists.)
-2. **Set the password in the ServiceNow UI** — ⚠️ **`user_password` writes
-   over the Table API are silently ignored on this instance** (PATCH returns
-   200 but auth still 401). Set each user's password via the user record →
-   *Set Password* related link. Ideally the SE sets their own so the secret
-   never passes through automation.
-3. **Console wizard (manual, per SE)** — in each SE's own `console.redhat.com`
-   → Settings → Integrations → Add integration → ServiceNow:
+⚠️ **ONE fixed integration user, ONE shared secret.** The app authenticates
+**every** inbound HCC call as the hard-coded ServiceNow user
+**`rh_insights_integration`**. That's why the console wizard asks only for a
+*Secret token* and no username — the Secret token is just that user's password.
+**You cannot do per-SE users or per-SE secrets with this app**; all SEs share
+the same endpoint and the same secret token. (An earlier version of this skill
+wrongly described a per-SE-user model — that was corrected after the system log
+showed `Basic authentication failed for user: rh_insights_integration`.)
+
+Setup:
+
+1. **One integration user `rh_insights_integration`** — granted
+   `x_rhtpp_rh_webhook.rest`, with `web_service_access_only=true` and
+   `internal_integration_user=true`. Create via REST as admin. **Never delete
+   it** — it's the account the app requires.
+2. **Set its password in the ServiceNow UI** — ⚠️ **`user_password` writes over
+   the Table API are silently ignored on this instance** (PATCH returns 200 but
+   auth still 401). Set it via the user record → *Set Password* related link.
+   This password is the shared Secret token; distribute it to SEs securely.
+3. **Console wizard (manual, per SE, same values for all)** — each SE in their
+   own `console.redhat.com` → Settings → Integrations → Add integration →
+   ServiceNow:
    - Endpoint URL:
      `https://<instance>.service-now.com/api/x_rhtpp_rh_webhook/flow_templates_for_red_hat_insights`
-   - Secret token: that SE's integration-user password.
-   - Associate event types (advisories/vulnerabilities) in step 3.
+   - Secret token: the `rh_insights_integration` password from step 2.
+   - Associate event types (advisories/vulnerabilities).
 
-⚠️ **No tenant isolation on the shared instance** — every SE's events land in
-the same ServiceNow tables. The inbound payload carries the Red Hat org/account
-ID; segregate via a custom field / assignment group / filter if needed.
+⚠️ **No tenant isolation on the shared instance** — all SEs authenticate as the
+same user, so every SE's events land in the same ServiceNow tables. The inbound
+payload carries the Red Hat org/account ID; segregate via a custom field /
+assignment group / filter if needed.
+
+Full runbook: `docs/native-servicenow-integration.md`.
 
 ## Two integration paths — don't confuse them
 
