@@ -1,0 +1,82 @@
+---
+# ============================================================================
+# playbooks/servicenow/create_change_request.yml
+# ============================================================================
+# Creates a ServiceNow Standard Change Request (CHG) when a CVE / Red Hat
+# advisory is identified for registered RHEL hosts. Runs as the first node
+# in the patch workflow (parallel to the pre-patch snapshot / compliance check)
+# so the ITSM record exists before hosts are touched.
+#
+# Publishes change_request_number + change_request_sys_id as workflow artifacts
+# so downstream playbooks can update or close the same record.
+#
+# Consumed inputs (from EDA event or workflow launch extra_vars):
+#   advisory_id          RHSB / CVE ID (e.g. RHSA-2025:1234 or CVE-2025-12345)
+#   advisory_severity    Critical | Important | Moderate | Low
+#   affected_hosts       comma-separated FQDN list (for the description)
+#
+# Credential: Lightspeed Patching - ServiceNow  (SN_* env vars)
+# ============================================================================
+
+- name: Create a ServiceNow Change Request for the advisory patch run
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    aap_base_url: "{{ lookup('ansible.builtin.env', 'CONTROLLER_HOST') }}"
+    wf_job_id: "{{ awx_workflow_job_id | default(tower_workflow_job_id | default('')) }}"
+    change_category: Software
+    change_type: Standard
+    change_risk: low
+    change_impact: low
+    change_assignment_group: "Ansible Automation"
+    change_assigned_to: service.ansible
+    change_short_description: >-
+      Automated patch run — {{ advisory_id | default('advisory') }}
+      ({{ advisory_severity | default('') }})
+    change_description: |-
+      Red Hat Lightspeed identified advisory {{ advisory_id | default('n/a') }}
+      affecting the following registered RHEL hosts:
+
+        {{ affected_hosts | default('see job details') }}
+
+      Severity:  {{ advisory_severity | default('n/a') }}
+      Initiated: Ansible Automation Platform (automated)
+      Workflow:  #{{ wf_job_id | default('n/a') }}
+      Live job:  {{ aap_base_url }}/execution/jobs/workflow/{{ wf_job_id }}/output
+
+  tasks:
+    - name: Assert ServiceNow credentials are set
+      ansible.builtin.assert:
+        that:
+          - lookup('ansible.builtin.env', 'SN_HOST') | length > 0
+          - lookup('ansible.builtin.env', 'SN_USERNAME') | length > 0
+          - lookup('ansible.builtin.env', 'SN_PASSWORD') | length > 0
+        fail_msg: "SN_HOST, SN_USERNAME, SN_PASSWORD must be exported (use the 'Lightspeed Patching - ServiceNow' credential)."
+
+    - name: Create the change request
+      register: chg_result
+      servicenow.itsm.api:
+        action: post
+        resource: change_request
+        data:
+          short_description: "{{ change_short_description }}"
+          description: "{{ change_description }}"
+          category: "{{ change_category }}"
+          type: "{{ change_type }}"
+          risk: "{{ change_risk }}"
+          impact: "{{ change_impact }}"
+          assignment_group: "{{ change_assignment_group }}"
+          assigned_to: "{{ change_assigned_to }}"
+          state: "-1"
+
+    - name: Show the change request number
+      ansible.builtin.debug:
+        msg: "Change request created: {{ chg_result.record.number }} (sys_id={{ chg_result.record.sys_id }})"
+
+    - name: Publish CHG number + sys_id as workflow artifacts
+      ansible.builtin.set_stats:
+        data:
+          change_request_number: "{{ chg_result.record.number }}"
+          change_request_sys_id: "{{ chg_result.record.sys_id }}"

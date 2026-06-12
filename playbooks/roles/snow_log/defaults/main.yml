@@ -1,0 +1,23 @@
+---
+# snow_log role — post a work note or comment to any ServiceNow ticket.
+#
+# Usage:
+#   - ansible.builtin.include_role:
+#       name: snow_log
+#     vars:
+#       snow_log_message: "Host {{ inventory_hostname }}: patch applied ({{ advisory_id }})."
+
+# Text to post (required — empty string = no-op).
+snow_log_message: ""
+
+# ServiceNow table name.  Override for other ticket types:
+#   change_request (default for patching), sc_req_item, incident, sc_task, …
+snow_log_resource: change_request
+
+# Field to write: work_notes (IT-internal) or comments (customer-visible).
+snow_log_field: work_notes
+
+# Ticket identifiers — default to the workflow-threaded variables so callers
+# rarely need to override these.
+snow_log_ticket_number: "{{ change_request_number | default('') }}"
+snow_log_ticket_sys_id: "{{ change_request_sys_id | default('') }}"

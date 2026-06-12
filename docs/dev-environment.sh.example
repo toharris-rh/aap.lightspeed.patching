@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# ============================================================================
+# docs/dev-environment.sh.example
+# ============================================================================
+# Template for local development credentials. Copy to docs/dev-environment.sh
+# (gitignored), fill in values, then `source docs/dev-environment.sh`.
+#
+# NEVER commit docs/dev-environment.sh — it holds real credentials.
+# Generate a new EDA bearer token: openssl rand -hex 32
+# ============================================================================
+
+# ServiceNow instance
+export SN_HOST="https://your-instance.service-now.com"
+export SN_USERNAME="your-service-account"
+export SN_PASSWORD=""
+
+# AAP Controller
+export CONTROLLER_HOST="https://your-aap-controller.example.com"
+export CONTROLLER_USERNAME="admin"
+export CONTROLLER_PASSWORD=""
+export CONTROLLER_VERIFY_SSL="false"
+
+# EDA Event Stream bearer token (matched pair — same value in AAP and Insights)
+# Generate: openssl rand -hex 32
+export EDA_EVENT_STREAM_TOKEN=""
+
+# Red Hat Insights / Lightspeed API (for testing webhook events locally)
+export INSIGHTS_BASE_URL="https://console.redhat.com"
+export INSIGHTS_CLIENT_ID=""
+export INSIGHTS_CLIENT_SECRET=""

@@ -1,0 +1,83 @@
+---
+# ============================================================================
+# playbooks/servicenow/update_change_request.yml
+# ============================================================================
+# Closes the ServiceNow Change Request with patch results — success or failure.
+# One playbook drives both outcomes via patch_outcome (set per JT in extra_vars).
+# Mirrors the dc1.azure update_ritm pattern.
+#
+# JT extra_vars:
+#   patch_outcome   success | failure
+#
+# Workflow artifacts consumed:
+#   change_request_sys_id       sys_id of the CHG (from create_change_request)
+#   change_request_number       CHG number
+#   patched_hosts               hosts successfully patched (set_stats from patch playbook)
+#   failed_hosts                hosts that failed to patch
+#   patch_advisory_id           advisory that was patched
+#   create_incident_number      INC number (from create_incident, failure path only)
+#
+# CHG close states (Standard Change):
+#   3 = Closed    (success)
+#   4 = Cancelled (failure — change did not complete)
+#
+# Credential: Lightspeed Patching - ServiceNow  (SN_* env vars)
+# ============================================================================
+
+- name: Update ServiceNow Change Request with patch outcome
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    patch_outcome: success
+    chg_success_state: "3"
+    chg_failure_state: "4"
+    chg_success_comment: |-
+      Automated patching completed successfully.
+
+      Advisory:       {{ advisory_id | default('n/a') }}
+      Patched hosts:  {{ patched_hosts | default('see job details') }}
+      Failed hosts:   {{ failed_hosts | default('none') }}
+
+      CMDB CIs updated with patch date. No further action required.
+    chg_failure_comment: |-
+      Automated patching did not complete successfully.
+
+      Advisory:       {{ advisory_id | default('n/a') }}
+      Failed hosts:   {{ failed_hosts | default('see job details') }}
+      Incident:       {{ create_incident_number | default('n/a') }}
+
+      Please review the incident and retry patching for the affected hosts.
+
+  tasks:
+    - name: Fail clearly if CHG sys_id was not threaded
+      ansible.builtin.assert:
+        that:
+          - change_request_sys_id is defined
+          - change_request_sys_id | string | length > 0
+        fail_msg: "change_request_sys_id is required — ensure create_change_request.yml ran first."
+
+    - name: Select state + comment for this outcome
+      ansible.builtin.set_fact:
+        chg_target_state: >-
+          {{ chg_success_state if patch_outcome == 'success' else chg_failure_state }}
+        chg_comment: >-
+          {{ chg_success_comment if patch_outcome == 'success' else chg_failure_comment }}
+
+    - name: Patch the Change Request (state + comment)
+      servicenow.itsm.api:
+        action: patch
+        resource: change_request
+        sys_id: "{{ change_request_sys_id }}"
+        data:
+          state: "{{ chg_target_state }}"
+          close_code: "{{ 'successful' if patch_outcome == 'success' else 'unsuccessful' }}"
+          close_notes: "{{ chg_comment }}"
+          comments: "{{ chg_comment }}"
+
+    - name: Show outcome
+      ansible.builtin.debug:
+        msg: >-
+          Change request {{ change_request_number | default(change_request_sys_id) }}
+          closed as {{ patch_outcome }} (state={{ chg_target_state }}).

@@ -1,0 +1,30 @@
+---
+# ============================================================================
+# aap_config/group_vars/all.yml
+# ============================================================================
+# CaC variables consumed by the AAP config-as-code playbooks and EDA
+# rulebook activations. Secrets (SN_PASSWORD, EDA_EVENT_STREAM_TOKEN, etc.)
+# are injected at runtime by AAP credentials — never stored here.
+# ============================================================================
+
+my_organization: "Default"
+
+# ---- EDA -------------------------------------------------------------------
+eda_controller_url: "https://your-aap-controller.example.com"
+
+# Advisory severity filter — only advisories at or above this level
+# trigger automatic patching. Matches event.payload.severity values from
+# the Red Hat Insights webhook.
+eda_auto_patch_severities:
+  - Critical
+  - Important
+
+# ---- ServiceNow ------------------------------------------------------------
+# Change Request defaults
+snow_change_assignment_group: "Ansible Automation"
+snow_change_assigned_to: "service.ansible"
+snow_change_category: "Software"
+snow_change_type: "Standard"
+
+# CMDB CI class for RHEL hosts
+snow_ci_class: "cmdb_ci_linux_server"

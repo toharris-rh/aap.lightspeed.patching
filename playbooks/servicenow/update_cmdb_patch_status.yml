@@ -1,0 +1,69 @@
+---
+# ============================================================================
+# playbooks/servicenow/update_cmdb_patch_status.yml
+# ============================================================================
+# Updates the CMDB CI for each successfully patched RHEL host with:
+#   - last_patched_date (install_date field on the CI)
+#   - patch_advisory    (custom field or short_description suffix)
+#
+# Runs on the success path after update_change_request. Uses
+# servicenow.itsm.api_info to resolve CI sys_id by FQDN, then patches.
+# Only processes hosts in patched_hosts (comma-separated FQDN list).
+#
+# Consumed inputs:
+#   patched_hosts    comma-separated FQDNs of successfully patched hosts
+#   advisory_id      advisory that was applied
+#
+# Credential: Lightspeed Patching - ServiceNow  (SN_* env vars)
+# ============================================================================
+
+- name: Update CMDB CI patch status for successfully patched RHEL hosts
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    ci_assignment_group: "Ansible Automation"
+
+  tasks:
+    - name: Build the list of patched FQDNs
+      ansible.builtin.set_fact:
+        patched_fqdn_list: "{{ (patched_hosts | default('')) | split(',') | map('trim') | select | list }}"
+
+    - name: Skip if no patched hosts reported
+      when: patched_fqdn_list | length == 0
+      ansible.builtin.debug:
+        msg: "patched_hosts is empty — no CMDB CIs to update."
+
+    - name: Update each CI
+      when: patched_fqdn_list | length > 0
+      block:
+        - name: Lookup CI sys_id for each patched host
+          register: ci_lookups
+          loop: "{{ patched_fqdn_list }}"
+          loop_control:
+            label: "{{ item }}"
+          servicenow.itsm.api_info:
+            resource: cmdb_ci_linux_server
+            sysparm_query: "fqdnSTARTSWITH{{ item }}^ORnameSTARTSWITH{{ item }}"
+
+        - name: Patch CI install_date + description suffix for found CIs
+          loop: "{{ ci_lookups.results }}"
+          loop_control:
+            label: "{{ item.item }}"
+          when: item.record | length > 0
+          servicenow.itsm.api:
+            action: patch
+            resource: cmdb_ci_linux_server
+            sys_id: "{{ item.record[0].sys_id }}"
+            data:
+              install_date: "{{ ansible_date_time.date | default(lookup('pipe', 'date +%Y-%m-%d')) }}"
+              short_description: "Patched: {{ advisory_id | default('see CHG') }}"
+
+        - name: Warn about hosts with no CMDB CI found
+          loop: "{{ ci_lookups.results }}"
+          loop_control:
+            label: "{{ item.item }}"
+          when: item.record | length == 0
+          ansible.builtin.debug:
+            msg: "WARNING: No CMDB CI found for {{ item.item }} — skipping update."

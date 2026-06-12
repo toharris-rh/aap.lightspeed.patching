@@ -1,0 +1,56 @@
+---
+# snow_log — post a work note / comment to a ServiceNow ticket.
+# Guarded on ticket number, non-breaking (rescue logs a warning on failure).
+# Works from any play targeting remote RHEL hosts — delegates SNow REST calls
+# to localhost.
+
+- name: "Snow_log post to {{ snow_log_ticket_number }}"
+  when:
+    - snow_log_ticket_number | string | length > 0
+    - snow_log_message | string | length > 0
+  delegate_to: localhost
+  become: false
+  block:
+    - name: Snow_log use preresolved sys_id
+      when: snow_log_ticket_sys_id | string | length > 0
+      ansible.builtin.set_fact:
+        _snow_log_resolved_sys_id: "{{ snow_log_ticket_sys_id }}"
+
+    - name: Snow_log look up sys_id by ticket number
+      when: _snow_log_resolved_sys_id is not defined
+      block:
+        - name: "Snow_log query {{ snow_log_resource }}"
+          servicenow.itsm.api_info:
+            resource: "{{ snow_log_resource }}"
+            sysparm_query: "numberSTARTSWITH{{ snow_log_ticket_number }}"
+            columns:
+              - sys_id
+              - number
+          register: _snow_log_lookup
+
+        - name: Snow_log cache sys_id
+          ansible.builtin.set_fact:
+            _snow_log_resolved_sys_id: "{{ _snow_log_lookup.record[0].sys_id }}"
+          when: _snow_log_lookup.record | length > 0
+
+        - name: Snow_log ticket not found
+          when: _snow_log_lookup.record | length == 0
+          ansible.builtin.debug:
+            msg: >-
+              snow_log: no {{ snow_log_resource }} matched
+              '{{ snow_log_ticket_number }}' — skipping.
+
+    - name: "Snow_log write {{ snow_log_field }}"
+      when: _snow_log_resolved_sys_id is defined
+      servicenow.itsm.api:
+        resource: "{{ snow_log_resource }}"
+        action: patch
+        sys_id: "{{ _snow_log_resolved_sys_id }}"
+        data: "{{ {snow_log_field: snow_log_message} }}"
+
+  rescue:
+    - name: Snow_log non-fatal failure
+      ansible.builtin.debug:
+        msg: >-
+          snow_log: ServiceNow update failed (non-fatal):
+          {{ ansible_failed_result.msg | default(ansible_failed_result | default('unknown error')) }}

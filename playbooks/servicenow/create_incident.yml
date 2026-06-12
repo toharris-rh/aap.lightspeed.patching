@@ -1,0 +1,75 @@
+---
+# ============================================================================
+# playbooks/servicenow/create_incident.yml
+# ============================================================================
+# Opens a ServiceNow incident when automated patching fails for one or more
+# hosts. Publishes create_incident_number as a workflow artifact so
+# update_change_request (failure path) can cite the INC number.
+# Guarded on failed_hosts so a full-success run never creates an incident.
+#
+# Adapted from dc1.azure create_incident.yml for the patching use case.
+#
+# Workflow artifacts consumed:
+#   failed_hosts              comma-separated FQDNs of hosts that failed
+#   advisory_id               advisory being patched
+#   patch_my_error            error message from the rescue block
+#   patch_my_job_id           AAP job ID of the failed patch run
+#   patch_my_job_template     name of the job template that failed
+#
+# Credential: Lightspeed Patching - ServiceNow  (SN_* env vars)
+# ============================================================================
+
+- name: Open a ServiceNow incident for the failed patch run
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    incident_caller: service.ansible
+    incident_impact: low
+    incident_urgency: low
+    incident_support_group: "Ansible Automation"
+
+  tasks:
+    - name: Skip if all hosts patched successfully
+      when: failed_hosts is not defined or (failed_hosts | string | length == 0)
+      ansible.builtin.debug:
+        msg: "No failed_hosts — skipping incident creation."
+
+    - name: Create the incident
+      when:
+        - failed_hosts is defined
+        - failed_hosts | string | length > 0
+      block:
+        - name: Create the incident ticket
+          register: incident_info
+          servicenow.itsm.incident:
+            state: new
+            caller: "{{ incident_caller }}"
+            short_description: >-
+              Patch failure — {{ advisory_id | default('advisory') }}
+              on {{ failed_hosts | default('unknown hosts') }}
+            description: |-
+              Automated patch run failed.
+
+              Advisory:    {{ advisory_id | default('n/a') }}
+              Failed hosts: {{ failed_hosts | default('n/a') }}
+              Job ID:       {{ patch_my_job_id | default('n/a') }}
+              Template:     {{ patch_my_job_template | default('n/a') }}
+
+              Error: {{ patch_my_error | default('see Ansible job output') }}
+
+              Change Request: {{ change_request_number | default('n/a') }}
+            impact: "{{ incident_impact }}"
+            urgency: "{{ incident_urgency }}"
+            other:
+              assignment_group: "{{ incident_support_group }}"
+
+        - name: Show the incident number
+          ansible.builtin.debug:
+            var: incident_info.record.number
+
+        - name: Publish the incident number to the workflow
+          ansible.builtin.set_stats:
+            data:
+              create_incident_number: "{{ incident_info.record.number }}"

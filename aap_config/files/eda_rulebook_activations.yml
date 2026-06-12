@@ -1,0 +1,25 @@
+---
+# ============================================================================
+# aap_config/files/eda_rulebook_activations.yml
+# ============================================================================
+# EDA rulebook activation config-as-code.
+# extra_vars here are injected into the rulebook so severity filters live in
+# CaC (group_vars/all.yml), not hard-coded in the rulebook.
+# ============================================================================
+
+eda_rulebook_activations:
+  - name: "Lightspeed Patching - Insights Advisory Listener"
+    description: "Listens for Red Hat Insights advisory webhooks and patches RHEL hosts"
+    project: "Lightspeed Patching"
+    rulebook: "rulebooks/lightspeed_events.yml"
+    decision_environment: "Default Decision Environment"
+    organization: "{{ my_organization }}"
+    event_streams:
+      - event_stream: "Lightspeed Patching - Insights Event Stream"
+        source_name: "__SOURCE_1"
+    credentials:
+      - "Lightspeed Patching - Controller"
+    extra_vars:
+      my_organization: "{{ my_organization }}"
+      eda_auto_patch_severities: "{{ eda_auto_patch_severities }}"
+    enabled: true
