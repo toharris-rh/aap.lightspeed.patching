@@ -5,11 +5,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (2026-06-12)
+
+- **Corrected the native ServiceNow integration to a single fixed user** — the
+  "Flow Templates for Red Hat Insights" app authenticates every inbound Hybrid
+  Cloud Console call as a hard-coded ServiceNow user `rh_insights_integration`
+  (the console wizard has no username field). The earlier per-SE-user model was
+  wrong — confirmed by the ServiceNow system log showing repeated
+  `Basic authentication failed for user: rh_insights_integration`. Updated
+  `docs/native-servicenow-integration.md` and the servicenow skill to document
+  one fixed user + one shared secret token, and removed the stray per-SE users.
+
 ### Added (2026-06-12)
 
 - **Native Red Hat Insights → ServiceNow integration documented as-built** —
   `docs/native-servicenow-integration.md`: covers the "Flow Templates for Red
-  Hat Insights" ServiceNow app, the per-SE integration-user model, the manual
+  Hat Insights" ServiceNow app, the single integration-user model, the manual
   steps each SE must take (set the integration-user password in the ServiceNow
   UI, run the console.redhat.com "Add integration" wizard, test), the
   ServiceNow REST endpoint, and the shared-instance (no per-org isolation)
