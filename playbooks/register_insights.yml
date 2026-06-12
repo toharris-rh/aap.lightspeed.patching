@@ -1,0 +1,50 @@
+---
+# ============================================================================
+# playbooks/register_insights.yml
+# ============================================================================
+# Installs insights-client and registers the host with Red Hat Insights.
+# After registration the host appears in console.redhat.com and Insights
+# will begin scanning for advisories.
+#
+# Credentials: Lightspeed Patching - Linux Machine (SSH)
+# ============================================================================
+
+- name: Register RHEL host with Red Hat Insights
+  hosts: all
+  gather_facts: false
+  become: true
+
+  tasks:
+    - name: Install insights-client
+      ansible.builtin.dnf:
+        name: insights-client
+        state: present
+
+    - name: Register with Insights
+      ansible.builtin.command:
+        cmd: insights-client --register
+      register: insights_reg
+      changed_when: "'Successfully registered' in insights_reg.stdout"
+      failed_when: insights_reg.rc != 0 and 'already registered' not in insights_reg.stdout
+
+    - name: Trigger initial check-in
+      ansible.builtin.command:
+        cmd: insights-client --check-results
+      changed_when: false
+      failed_when: false
+
+    - name: Show registration result
+      ansible.builtin.debug:
+        msg: "{{ insights_reg.stdout }}"
+
+    - name: Log Insights registration to ServiceNow
+      ansible.builtin.include_role:
+        name: snow_log
+      vars:
+        snow_log_resource: incident
+        snow_log_ticket_number: "{{ ticket_number | default('') }}"
+        snow_log_ticket_sys_id: "{{ ticket_sys_id | default('') }}"
+        snow_log_message: >-
+          {{ inventory_hostname }}: Registered with Red Hat Insights.
+          Host will now appear in console.redhat.com for advisory scanning.
+      when: ticket_number is defined and ticket_number | length > 0

@@ -9,22 +9,70 @@
 # Generate a new EDA bearer token: openssl rand -hex 32
 # ============================================================================
 
-# ServiceNow instance
-export SN_HOST="https://your-instance.service-now.com"
-export SN_USERNAME="your-service-account"
+# ============================================================================
+# AAP — from the Red Hat Demo Platform (APD catalog item)
+# These values are displayed on the RHDP environment detail page after ordering.
+# ============================================================================
+export AAP_HOSTNAME=""                 # e.g. https://controller.XXXXXXX.rhdemos.com
+export AAP_CONTROLLER_USERNAME="admin"
+export AAP_CONTROLLER_PASSWORD=""
+export AAP_VALIDATE_CERTS="false"
+# Optional: Private Automation Hub hostname (if separate from controller)
+export AH_HOSTNAME=""
+
+# ============================================================================
+# AWS — credentials for Terraform EC2 provisioning
+# Default region is used (us-east-1 unless overridden by your AWS config).
+# ============================================================================
+export AWS_ACCESS_KEY_ID=""
+export AWS_SECRET_ACCESS_KEY=""
+export AWS_DEFAULT_REGION="us-east-1"
+
+# S3 bucket for Terraform remote state (create once per RHDP env before load.yml)
+# Name must be globally unique — suggest: lightspeed-patching-tfstate-<your-initials>
+export AWS_TF_STATE_BUCKET=""
+
+# ============================================================================
+# SSH — Linux machine credential for AAP + local SSH access to the EC2 instance
+# Use the same key pair so you can SSH directly during demos.
+# Path to your private key: e.g. ~/.ssh/id_rsa or ~/.ssh/tony-1899.pem
+# ============================================================================
+export LINUX_ADMIN_USERNAME="ec2-user"
+export LINUX_SSH_PRIVATE_KEY="$(cat ~/.ssh/id_rsa 2>/dev/null)"
+export LINUX_SSH_PUBLIC_KEY="$(cat ~/.ssh/id_rsa.pub 2>/dev/null)"
+
+# ============================================================================
+# Red Hat CDN — registration credentials for new RHEL VMs
+# Obtain from console.redhat.com → Subscriptions → Activation Keys
+# ============================================================================
+export RH_ORG_ID=""                    # e.g. 12345678
+export RH_ACTIVATION_KEY=""            # e.g. lightspeed-patching-demo
+
+# ============================================================================
+# ServiceNow
+# ============================================================================
+export SN_HOST=""                      # e.g. https://your-instance.service-now.com
+export SN_USERNAME="rh_insights_tharris"
 export SN_PASSWORD=""
 
-# AAP Controller
-export CONTROLLER_HOST="https://your-aap-controller.example.com"
-export CONTROLLER_USERNAME="admin"
-export CONTROLLER_PASSWORD=""
-export CONTROLLER_VERIFY_SSL="false"
-
-# EDA Event Stream bearer token (matched pair — same value in AAP and Insights)
+# EDA Event Stream bearer token (matched pair — same value in:
+#   1. AAP EDA event-stream credential
+#   2. ServiceNow Business Rule outbound REST header)
 # Generate: openssl rand -hex 32
 export EDA_EVENT_STREAM_TOKEN=""
 
-# Red Hat Insights / Lightspeed API (for testing webhook events locally)
+# ============================================================================
+# Red Hat Insights / Hybrid Cloud Console
+# Needed if calling the Insights API directly (e.g. triggering a scan).
+# Service account credentials from console.redhat.com → Settings → My Profile
+# ============================================================================
 export INSIGHTS_BASE_URL="https://console.redhat.com"
 export INSIGHTS_CLIENT_ID=""
 export INSIGHTS_CLIENT_SECRET=""
+
+# ============================================================================
+# AAP EE (Execution Environment)
+# Defaults to the built-in EE; override if you build a custom EE.
+# ============================================================================
+export LIGHTSPEED_PATCHING_EE_VERSION="v1.0.0"
+# export LIGHTSPEED_PATCHING_EE_IMAGE="quay.io/your-org/lightspeed-patching-ee:latest"

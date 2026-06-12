@@ -1,0 +1,10 @@
+---
+controller_inventories:
+  # Main inventory — RHEL hosts registered here by provision_vm_aws.yml
+  - name: "{{ inventory_name }}"
+    organization: "{{ my_organization }}"
+    variables: {}
+
+  # Control inventory — teardown JT runs here to avoid locking the main inventory
+  - name: "{{ control_inventory_name }}"
+    organization: "{{ my_organization }}"

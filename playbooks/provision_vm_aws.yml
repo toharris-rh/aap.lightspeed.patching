@@ -1,0 +1,52 @@
+---
+# ============================================================================
+# playbooks/provision_vm_aws.yml
+# ============================================================================
+# Terraform wrapper: provisions a RHEL EC2 instance on AWS.
+# Mirrors the dc1.azure provision_vm.yml pattern for AWS.
+#
+# Inputs (via JT extra_vars or survey):
+#   vm_size_tier      small | medium | large  (maps to EC2 instance type)
+#   ticket_number     SNow INC/RITM number (optional — guards SNow callbacks)
+#   ticket_sys_id     SNow sys_id (optional)
+#
+# VM size → EC2 instance type map:
+#   small  → t3.medium  (2 vCPU, 4 GiB)
+#   medium → t3.large   (2 vCPU, 8 GiB)
+#   large  → t3.xlarge  (4 vCPU, 16 GiB)
+#
+# Publishes set_stats:
+#   linux_fqdn          FQDN / public DNS of the new instance
+#   linux_public_ip     public IP
+#   linux_instance_id   EC2 instance ID
+#
+# Credentials: Lightspeed Patching - AWS (AWS_ACCESS_KEY_ID/SECRET)
+#              Lightspeed Patching - Controller (CONTROLLER_* for inventory reg)
+#
+# TODO (Tony - Phase 2): implement Terraform module under terraform/
+# ============================================================================
+
+- name: Provision RHEL EC2 instance on AWS
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    aws_region: "{{ lookup('ansible.builtin.env', 'AWS_DEFAULT_REGION') | default('us-east-1', true) }}"
+    aws_tf_state_bucket: "{{ lookup('ansible.builtin.env', 'AWS_TF_STATE_BUCKET') }}"
+    vm_size_tier: medium
+    instance_type_map:
+      small: t3.medium
+      medium: t3.large
+      large: t3.xlarge
+    ec2_instance_type: "{{ instance_type_map[vm_size_tier] }}"
+    ec2_ami: ""   # TODO: set RHEL 9 AMI ID for the target region
+    ec2_key_name: ""   # TODO: set EC2 key pair name (matches LINUX_SSH_PUBLIC_KEY)
+
+  tasks:
+    - name: "STUB — replace with Terraform runner (Phase 2)"
+      ansible.builtin.debug:
+        msg: >-
+          Will provision EC2 {{ ec2_instance_type }} in {{ aws_region }}.
+          Terraform state bucket: {{ aws_tf_state_bucket }}.
+          TODO: implement terraform/ module and run it here.

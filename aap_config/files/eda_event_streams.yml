@@ -1,14 +1,10 @@
 ---
-# ============================================================================
-# aap_config/files/eda_event_streams.yml
-# ============================================================================
-# EDA event stream definition for the Red Hat Insights advisory webhook.
-# The external URL is auto-assigned by AAP EDA when the stream is created.
-# Configure Red Hat Insights to POST to this URL with the bearer token.
-# ============================================================================
-
+# One shared event stream — ServiceNow Business Rules POST here for both:
+#   1. Catalog orders (short_description match → provision workflow)
+#   2. Incidents from Insights (category/source match → remediate workflow)
+# The rulebooks distinguish the two by matching on payload fields.
 eda_event_streams:
-  - name: "Lightspeed Patching - Insights Event Stream"
-    credential_name: "Lightspeed Patching - Insights Event Stream"
-    event_stream_type: "Red Hat Insights"
+  - name: "{{ eda_event_stream_name }}"
+    credential_name: "{{ eda_snow_event_stream_credential }}"
+    event_stream_type: "ServiceNow"
     organization_name: "{{ my_organization }}"

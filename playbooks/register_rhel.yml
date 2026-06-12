@@ -1,0 +1,46 @@
+---
+# ============================================================================
+# playbooks/register_rhel.yml
+# ============================================================================
+# Registers a new RHEL host to the Red Hat CDN using subscription-manager
+# and an activation key. Must run after the host is reachable via SSH.
+#
+# Credentials: Lightspeed Patching - Red Hat CDN  (RH_ORG_ID, RH_ACTIVATION_KEY)
+#              Lightspeed Patching - Linux Machine (SSH)
+# ============================================================================
+
+- name: Register RHEL to Red Hat CDN
+  hosts: all
+  gather_facts: false
+  become: true
+
+  vars:
+    rh_org_id: "{{ lookup('ansible.builtin.env', 'RH_ORG_ID') }}"
+    rh_activation_key: "{{ lookup('ansible.builtin.env', 'RH_ACTIVATION_KEY') }}"
+
+  tasks:
+    - name: Assert registration credentials are set
+      ansible.builtin.assert:
+        that:
+          - rh_org_id | length > 0
+          - rh_activation_key | length > 0
+        fail_msg: "RH_ORG_ID and RH_ACTIVATION_KEY must be set (use the 'Lightspeed Patching - Red Hat CDN' credential)."
+
+    - name: Register to Red Hat CDN
+      community.general.redhat_subscription:
+        state: present
+        org_id: "{{ rh_org_id }}"
+        activationkey: "{{ rh_activation_key }}"
+        auto_attach: true
+
+    - name: Log registration to ServiceNow
+      ansible.builtin.include_role:
+        name: snow_log
+      vars:
+        snow_log_resource: incident
+        snow_log_ticket_number: "{{ ticket_number | default('') }}"
+        snow_log_ticket_sys_id: "{{ ticket_sys_id | default('') }}"
+        snow_log_message: >-
+          {{ inventory_hostname }}: Registered to Red Hat CDN
+          (org: {{ rh_org_id }}, key: {{ rh_activation_key }}).
+      when: ticket_number is defined and ticket_number | length > 0

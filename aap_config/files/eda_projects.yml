@@ -1,0 +1,5 @@
+---
+eda_projects:
+  - name: "{{ eda_project_name }}"
+    url: "https://github.com/toharris-rh/aap.lightspeed.patching.git"
+    description: "Lightspeed Patching EDA rulebooks"

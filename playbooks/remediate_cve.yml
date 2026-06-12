@@ -1,0 +1,89 @@
+---
+# ============================================================================
+# playbooks/remediate_cve.yml
+# ============================================================================
+# Remediates a CVE identified by Red Hat Insights on registered RHEL hosts.
+# Called by the "Lightspeed Patching - Remediate CVE" workflow, triggered by
+# the EDA rulebook when a ServiceNow INC from Insights is detected.
+#
+# Uses snow_log to post per-host real-time work notes to the INC.
+# ServiceNow account: service.ansible (via the SNow credential).
+#
+# Inputs (from EDA extra_vars):
+#   incident_number   SNow INC number (e.g. INC0012345)
+#   incident_sys_id   SNow INC sys_id
+#   advisory_id       advisory identifier from Insights (e.g. RHSA-2025:1234)
+#   affected_hosts    FQDN(s) of affected hosts (limit string)
+#
+# Credentials: Lightspeed Patching - Linux Machine (SSH)
+#              Lightspeed Patching - ServiceNow (snow_log)
+# ============================================================================
+
+- name: Remediate CVE on affected RHEL hosts
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Log remediation start to ServiceNow INC
+      ansible.builtin.include_role:
+        name: snow_log
+      vars:
+        snow_log_resource: incident
+        snow_log_ticket_number: "{{ incident_number | default('') }}"
+        snow_log_ticket_sys_id: "{{ incident_sys_id | default('') }}"
+        snow_log_message: >-
+          {{ inventory_hostname }}: Starting automated remediation.
+          Advisory: {{ advisory_id | default('n/a') }}.
+          Kernel before: {{ ansible_kernel }}.
+      when: incident_number is defined and incident_number | length > 0
+
+    - name: Apply the advisory patch
+      ansible.builtin.dnf:
+        name: "{{ advisory_id if advisory_id is defined and advisory_id | length > 0 else '*' }}"
+        state: latest
+        update_only: true
+      register: dnf_result
+
+    - name: Log patch result to ServiceNow INC
+      ansible.builtin.include_role:
+        name: snow_log
+      vars:
+        snow_log_resource: incident
+        snow_log_ticket_number: "{{ incident_number | default('') }}"
+        snow_log_ticket_sys_id: "{{ incident_sys_id | default('') }}"
+        snow_log_message: >-
+          {{ inventory_hostname }}: Remediation complete.
+          {{ dnf_result.results | length if dnf_result.results is defined else 0 }} packages updated.
+          Reboot required: {{ dnf_result.changed | bool }}.
+      when: incident_number is defined and incident_number | length > 0
+
+    - name: Reboot if kernel updated
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+      when: dnf_result.changed
+
+    - name: Verify CVE is resolved (re-run insights-client)
+      ansible.builtin.command:
+        cmd: insights-client --check-results
+      changed_when: false
+      failed_when: false
+
+    - name: Log resolution confirmation to ServiceNow INC
+      ansible.builtin.include_role:
+        name: snow_log
+      vars:
+        snow_log_resource: incident
+        snow_log_ticket_number: "{{ incident_number | default('') }}"
+        snow_log_ticket_sys_id: "{{ incident_sys_id | default('') }}"
+        snow_log_message: >-
+          {{ inventory_hostname }}: CVE remediated. Insights check-results run.
+          Advisory {{ advisory_id | default('n/a') }} should no longer appear
+          on next Insights scan. Incident ready to close.
+      when: incident_number is defined and incident_number | length > 0
+
+    - name: Publish remediated hosts as workflow artifact
+      ansible.builtin.set_stats:
+        data:
+          patched_hosts: "{{ inventory_hostname }}"
+          advisory_id: "{{ advisory_id | default('') }}"

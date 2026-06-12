@@ -1,0 +1,38 @@
+---
+# ============================================================================
+# rulebooks/servicenow_events.yml
+# ============================================================================
+# EDA rulebook: listens for ServiceNow catalog orders forwarded by the
+# "Lightspeed Patching - ServiceNow Event Stream" and launches the
+# Provision and Onboard workflow.
+#
+# Flow:
+#   ServiceNow catalog order
+#     → Business Rule fires → POST to EDA event stream
+#     → THIS rulebook matches on short_description
+#     → run_workflow_template: Lightspeed Patching - Provision and Onboard
+#
+# The short_description MUST match my_snow_catalog_short_description in
+# aap_config/group_vars/all.yml byte-for-byte. Change either side alone
+# and orders silently fail.
+# ============================================================================
+
+- name: Listen for ServiceNow catalog orders
+  hosts: all
+  sources:
+    - ansible.eda.webhook:
+        host: 0.0.0.0
+        port: 5000
+
+  rules:
+    - name: Provision RHEL VM on ServiceNow catalog order
+      condition: event.payload.short_description == vars.my_snow_catalog_short_description
+      action:
+        run_workflow_template:
+          name: "Lightspeed Patching - Provision and Onboard"
+          organization: "{{ my_organization }}"
+          job_args:
+            extra_vars:
+              ticket_number: "{{ event.payload.number }}"
+              ticket_sys_id: "{{ event.payload.sys_id }}"
+              vm_size_tier: "{{ event.payload.vm_size_tier | default('medium') }}"
