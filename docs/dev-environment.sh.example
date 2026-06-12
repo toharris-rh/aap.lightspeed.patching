@@ -37,9 +37,10 @@ export AWS_TF_STATE_BUCKET=""
 # Use the same key pair so you can SSH directly during demos.
 # Path to your private key: e.g. ~/.ssh/id_rsa or ~/.ssh/tony-1899.pem
 # ============================================================================
+# SSH key: id_rsa (Q1 resolved 2026-06-12)
 export LINUX_ADMIN_USERNAME="ec2-user"
-export LINUX_SSH_PRIVATE_KEY="$(cat ~/.ssh/id_rsa 2>/dev/null)"
-export LINUX_SSH_PUBLIC_KEY="$(cat ~/.ssh/id_rsa.pub 2>/dev/null)"
+export LINUX_SSH_PRIVATE_KEY="$(cat ~/.ssh/id_rsa)"
+export LINUX_SSH_PUBLIC_KEY="$(cat ~/.ssh/id_rsa.pub)"
 
 # ============================================================================
 # Red Hat CDN — registration credentials for new RHEL VMs

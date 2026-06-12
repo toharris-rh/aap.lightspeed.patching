@@ -190,7 +190,7 @@ ACT 2 — CVE Detected → Remediate Instantly
 
 | # | Question | Owner to answer |
 |---|----------|----------------|
-| Q1 | Which SSH key from `~/.ssh` should the demo use? (`tony-1899.pem`, `id_rsa`, or generate new?) | Tony |
+| ~~Q1~~ | ~~Which SSH key from `~/.ssh`?~~ **Resolved: `~/.ssh/id_rsa`** | Tony ✓ |
 | Q2 | What APD catalog item name / RHDP offer is being ordered for AAP? | Tony |
 | Q3 | ServiceNow catalog item short_description (exact string — must match EDA rulebook byte-for-byte) | Eric |
 | Q4 | Does the Insights→SNow native integration create an **INC** or something else? | Tony (Phase 5) |

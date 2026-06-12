@@ -32,6 +32,7 @@ aws_default_region: "{{ lookup('ansible.builtin.env', 'AWS_DEFAULT_REGION') | de
 aws_tf_state_bucket: "{{ lookup('ansible.builtin.env', 'AWS_TF_STATE_BUCKET') }}"
 
 # --- SSH / Linux machine -----------------------------------------------------
+# SSH key: ~/.ssh/id_rsa (Q1 resolved 2026-06-12)
 linux_admin_username: "{{ lookup('ansible.builtin.env', 'LINUX_ADMIN_USERNAME') | default('ec2-user', true) }}"
 linux_ssh_public_key: "{{ lookup('ansible.builtin.env', 'LINUX_SSH_PUBLIC_KEY') }}"
 linux_ssh_private_key: "{{ lookup('ansible.builtin.env', 'LINUX_SSH_PRIVATE_KEY') }}"
