@@ -1,0 +1,30 @@
+# Ansible — installed collections (declared in collections/requirements.yml)
+collections/ansible_collections/
+
+# Ansible — local cache dirs created by ansible / ansible-lint
+.ansible/
+
+# Ansible — vault password files and local secrets
+.vault_pass
+.vault_password
+*.vault_pass
+
+# direnv-loaded local environment, if you use direnv for per-developer secrets.
+# (The repo's canonical secret file is docs/dev-environment.sh — see below.)
+.envrc
+
+# Local dev environment — fill in from docs/dev-environment.sh.example (never commit).
+# Holds the real Dynatrace tenant id + tokens; must stay out of this public repo.
+docs/dev-environment.sh
+
+# Claude Code per-project state (memory, transcripts, settings) — ignored,
+# EXCEPT repo-based skills, which ship with the repo.
+.claude/*
+!.claude/skills/
+
+# OS / editor cruft
+.DS_Store
+*.swp
+*~
+__pycache__/
+*.py[cod]

@@ -1,0 +1,18 @@
+# Code owners for aap.lightspeed.patching.
+# GitHub requests review from these owners when matching paths change.
+
+# Catch-all
+*                       @toharris-rh @ericcames
+
+# Ansible content
+/playbooks/             @toharris-rh @ericcames
+/rulebooks/             @toharris-rh @ericcames
+/collections/           @toharris-rh @ericcames
+
+# AAP Config as Code
+/aap_config/            @toharris-rh @ericcames
+
+# Governance + docs
+/docs/                  @toharris-rh @ericcames
+/ROADMAP.md             @toharris-rh @ericcames
+/CLAUDE.md              @toharris-rh @ericcames

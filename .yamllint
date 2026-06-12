@@ -1,0 +1,27 @@
+---
+# yamllint config for aap.eda.dynatrace.push (CI lint gate).
+# Codifies the standard the .github/workflows/ci.yml `yamllint .` step enforces.
+extends: default
+
+ignore: |
+  collections/ansible_collections/
+
+rules:
+  # Long env-var lookups, rulebook conditions, and namespaced names run past 80;
+  # keep readability without hard-wrapping — warn, don't fail.
+  line-length:
+    max: 200
+    level: warning
+  truthy:
+    allowed-values: ["true", "false", "yes", "no"]
+    check-keys: false
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: disable
+  # Kept aligned with ansible-lint's embedded yamllint expectations so the two
+  # tools don't disagree.
+  braces:
+    max-spaces-inside: 1
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true
