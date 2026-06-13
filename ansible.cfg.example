@@ -1,0 +1,60 @@
+# ============================================================================
+# aap.lightspeed.patching — ansible.cfg TEMPLATE (example only — DO NOT rename
+# to ansible.cfg)
+# ============================================================================
+# Ansible loads exactly ONE ansible.cfg (it does not merge them). A *live*
+# project-local `ansible.cfg` would shadow your home cfg and break
+# `ansible-galaxy collection install` for Red Hat certified/validated content.
+# So this template is committed as `ansible.cfg.example` (never auto-loaded).
+#
+# To use it, copy it to your standard home path and fill in the token:
+#
+#     cp ansible.cfg.example ~/.ansible.cfg
+#     # then replace REPLACE_ME_AUTOMATION_HUB_OFFLINE_TOKEN below with your
+#     # offline token from https://console.redhat.com/ansible/automation-hub/token
+#
+# NOTE: the same offline token authenticates BOTH the certified AND validated
+# Galaxy servers — paste it in both [galaxy_server.rh_certified] and
+# [galaxy_server.rh_validated].
+# ============================================================================
+
+[defaults]
+host_key_checking = False
+
+[galaxy]
+# server_list controls resolution order. Certified + validated come from Red
+# Hat Automation Hub (requires an offline token). Community is the public
+# Ansible Galaxy fallback. Keep rh_certified first so Hub-pinned collections
+# (infra.aap_configuration 4.4.0) are found before community equivalents.
+server_list = rh_certified, rh_validated, community
+
+# ---------------------------------------------------------------------------
+# Red Hat Automation Hub — certified content
+# URL:      Published / certified collections (infra.aap_configuration,
+#           ansible.platform, servicenow.itsm, amazon.aws, etc.)
+# auth_url: SSO endpoint that exchanges the offline token for an access token.
+# token:    Offline token — get one at the URL above. Long-lived; rotate when
+#           it expires or when you rotate your Red Hat account credentials.
+# ---------------------------------------------------------------------------
+[galaxy_server.rh_certified]
+url = https://console.redhat.com/api/automation-hub/content/published/
+auth_url = https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token
+token = REPLACE_ME_AUTOMATION_HUB_OFFLINE_TOKEN
+
+# ---------------------------------------------------------------------------
+# Red Hat Automation Hub — validated content
+# Same offline token as rh_certified. Validated collections are community
+# content reviewed and tested by Red Hat (e.g. community.general validated
+# builds). Both sections need the token or ansible-galaxy will prompt for it.
+# ---------------------------------------------------------------------------
+[galaxy_server.rh_validated]
+url = https://console.redhat.com/api/automation-hub/content/validated/
+auth_url = https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token
+token = REPLACE_ME_AUTOMATION_HUB_OFFLINE_TOKEN
+
+# ---------------------------------------------------------------------------
+# Ansible Galaxy — public community content (fallback)
+# No token required. Used for community collections not available on Hub.
+# ---------------------------------------------------------------------------
+[galaxy_server.community]
+url = https://galaxy.ansible.com/
