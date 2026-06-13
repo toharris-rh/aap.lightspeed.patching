@@ -1,8 +1,11 @@
 ---
 # ============================================================================
-# playbooks/provision_vm_aws.yml
+# playbooks/provision_vm_aws.yml — Phase 2
 # ============================================================================
-# Terraform wrapper: provisions a RHEL EC2 instance on AWS.
+# Terraform wrapper: provisions a RHEL 9 EC2 instance on AWS, then registers
+# it in the AAP lightspeed-patching inventory so downstream workflow nodes
+# (register_rhel, patch_rhel, register_insights) can target it.
+#
 # Mirrors the dc1.azure provision_vm.yml pattern for AWS.
 #
 # Inputs (via JT extra_vars or survey):
@@ -16,14 +19,13 @@
 #   large  → t3.xlarge  (4 vCPU, 16 GiB)
 #
 # Publishes set_stats:
-#   linux_fqdn          FQDN / public DNS of the new instance
+#   linux_fqdn          public DNS of the new instance
 #   linux_public_ip     public IP
 #   linux_instance_id   EC2 instance ID
 #
-# Credentials: Lightspeed Patching - AWS (AWS_ACCESS_KEY_ID/SECRET)
-#              Lightspeed Patching - Controller (CONTROLLER_* for inventory reg)
-#
-# TODO (Tony - Phase 2): implement Terraform module under terraform/
+# Required credentials (attached to the AAP job template):
+#   Lightspeed Patching - AWS         (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY)
+#   Lightspeed Patching - Controller  (AAP_HOSTNAME / AAP_CONTROLLER_USERNAME / PASSWORD)
 # ============================================================================
 
 - name: Provision RHEL EC2 instance on AWS
@@ -32,21 +34,142 @@
   gather_facts: false
 
   vars:
+    terraform_dir: "{{ playbook_dir }}/../terraform"
+    lsp_inventory: "{{ inventory_name | default('lightspeed-patching') }}"
+    lsp_linux_group: linux
+    vm_size_tier: medium
     aws_region: "{{ lookup('ansible.builtin.env', 'AWS_DEFAULT_REGION') | default('us-east-1', true) }}"
     aws_tf_state_bucket: "{{ lookup('ansible.builtin.env', 'AWS_TF_STATE_BUCKET') }}"
-    vm_size_tier: medium
-    instance_type_map:
-      small: t3.medium
-      medium: t3.large
-      large: t3.xlarge
-    ec2_instance_type: "{{ instance_type_map[vm_size_tier] }}"
-    ec2_ami: ""   # TODO: set RHEL 9 AMI ID for the target region
-    ec2_key_name: ""   # TODO: set EC2 key pair name (matches LINUX_SSH_PUBLIC_KEY)
+    linux_ssh_public_key: "{{ lookup('ansible.builtin.env', 'LINUX_SSH_PUBLIC_KEY') }}"
+    aap_hostname: "{{ lookup('ansible.builtin.env', 'AAP_HOSTNAME') }}"
+    aap_validate_certs: "{{ lookup('ansible.builtin.env', 'AAP_VALIDATE_CERTS') | default('false', true) }}"
 
   tasks:
-    - name: "STUB — replace with Terraform runner (Phase 2)"
-      ansible.builtin.debug:
-        msg: >-
-          Will provision EC2 {{ ec2_instance_type }} in {{ aws_region }}.
-          Terraform state bucket: {{ aws_tf_state_bucket }}.
-          TODO: implement terraform/ module and run it here.
+    - name: Provision the VM and register (capture failures for ServiceNow)
+      block:
+        - name: Assert provisioning inputs are present
+          ansible.builtin.assert:
+            that:
+              - vm_size_tier in ['small', 'medium', 'large']
+              - aws_tf_state_bucket | length > 0
+              - linux_ssh_public_key | length > 0
+              - aap_hostname | length > 0
+            fail_msg: >-
+              Need vm_size_tier (small|medium|large), AWS_TF_STATE_BUCKET,
+              LINUX_SSH_PUBLIC_KEY, and AAP_HOSTNAME.
+
+        - name: Initialize Terraform (S3 backend)
+          ansible.builtin.command:
+            cmd: >-
+              terraform init -input=false -no-color
+              -backend-config="bucket={{ aws_tf_state_bucket }}"
+              -backend-config="key=lightspeed-patching.tfstate"
+              -backend-config="region={{ aws_region }}"
+            chdir: "{{ terraform_dir }}"
+          changed_when: false
+
+        - name: Apply Terraform (create the EC2 instance)
+          ansible.builtin.command:
+            cmd: >-
+              terraform apply -input=false -auto-approve -no-color
+              -var vm_size_tier={{ vm_size_tier }}
+              -var linux_admin_username={{ linux_admin_username | default('ec2-user') }}
+            chdir: "{{ terraform_dir }}"
+          environment:
+            TF_VAR_linux_ssh_public_key: "{{ linux_ssh_public_key }}"
+          no_log: true
+          changed_when: true
+          register: tf_apply_result
+          ignore_errors: true
+
+        - name: Show Terraform error (if apply failed)
+          when: tf_apply_result is failed
+          ansible.builtin.debug:
+            msg: "{{ tf_apply_result.stderr_lines | default(tf_apply_result.stderr | default('no stderr') | split('\n')) }}"
+
+        - name: Fail if Terraform apply failed
+          when: tf_apply_result is failed
+          ansible.builtin.fail:
+            msg: "terraform apply exited {{ tf_apply_result.rc | default('?') }}"
+
+        - name: Read Terraform outputs
+          ansible.builtin.command:
+            cmd: terraform output -json
+            chdir: "{{ terraform_dir }}"
+          changed_when: false
+          register: tf_output
+
+        - name: Parse inventory output
+          ansible.builtin.set_fact:
+            linux_inventory: "{{ (tf_output.stdout | from_json).linux_inventory.value }}"
+
+        - name: Register host in AAP inventory
+          block:
+            - name: Acquire AAP token
+              ansible.builtin.include_tasks: "{{ playbook_dir }}/../aap_config/tasks/aap_token_acquire.yml"
+
+            - name: Ensure the linux group exists
+              ansible.platform.group:
+                aap_hostname: "{{ aap_hostname }}"
+                aap_token: "{{ aap_token }}"
+                validate_certs: "{{ aap_validate_certs }}"
+                name: "{{ lsp_linux_group }}"
+                inventory: "{{ lsp_inventory }}"
+                state: present
+                variables:
+                  ansible_connection: ssh
+                  ansible_port: 22
+
+            - name: Add the EC2 instance as a host
+              ansible.platform.host:
+                aap_hostname: "{{ aap_hostname }}"
+                aap_token: "{{ aap_token }}"
+                validate_certs: "{{ aap_validate_certs }}"
+                name: "{{ linux_inventory.host }}"
+                inventory: "{{ lsp_inventory }}"
+                enabled: true
+                state: present
+                variables:
+                  ansible_host: "{{ linux_inventory.ansible_host }}"
+                  vm_name: "{{ linux_inventory.vm_name }}"
+                  instance_id: "{{ linux_inventory.instance_id }}"
+                  vm_size_chosen: "{{ linux_inventory.vm_size_chosen }}"
+
+            - name: Associate host with the linux group
+              ansible.platform.group:
+                aap_hostname: "{{ aap_hostname }}"
+                aap_token: "{{ aap_token }}"
+                validate_certs: "{{ aap_validate_certs }}"
+                name: "{{ lsp_linux_group }}"
+                inventory: "{{ lsp_inventory }}"
+                hosts:
+                  - "{{ linux_inventory.host }}"
+                state: present
+
+          always:
+            - name: Release AAP token
+              ansible.builtin.include_tasks: "{{ playbook_dir }}/../aap_config/tasks/aap_token_release.yml"
+
+        - name: Pass provisioning details to the rest of the workflow
+          ansible.builtin.set_stats:
+            data:
+              linux_fqdn: "{{ linux_inventory.host }}"
+              linux_public_ip: "{{ linux_inventory.ansible_host }}"
+              linux_instance_id: "{{ linux_inventory.instance_id }}"
+              linux_vm_name: "{{ linux_inventory.vm_name }}"
+              linux_vm_size_chosen: "{{ linux_inventory.vm_size_chosen }}"
+              linux_admin_username: "{{ linux_inventory.ansible_user }}"
+
+      rescue:
+        - name: Capture the failure for the ServiceNow incident path
+          ansible.builtin.set_stats:
+            data:
+              vm_my_error: "{{ ansible_failed_result.msg | default('provisioning failed') }}"
+              vm_my_job_id: "{{ tower_job_id | default(awx_job_id | default('n/a')) }}"
+              vm_my_job_template_name: >-
+                {{ tower_job_template_name | default(awx_job_template_name
+                   | default('Lightspeed Patching - Provision VM')) }}
+
+        - name: Re-fail so the workflow takes its failure path
+          ansible.builtin.fail:
+            msg: "Provisioning failed; failure details captured for the ServiceNow incident node."
