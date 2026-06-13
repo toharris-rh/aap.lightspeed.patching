@@ -7,6 +7,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed (2026-06-13)
 
+- **Provision inventory registration uses `aap_token`** (#19 follow-up) —
+  `ansible.controller` 4.8.0 does not accept `controller_oauthtoken` (dc1's
+  older pin did); the token param is `aap_token`. Renamed it in the three
+  host/group calls in `provision_vm_aws.yml`.
+
 - **Terraform security-group description is ASCII-only** (#19 follow-up) — the
   SG `GroupDescription` contained an em-dash; AWS rejects non-ASCII
   (`InvalidParameterValue ... Character sets beyond ASCII are not supported`),
