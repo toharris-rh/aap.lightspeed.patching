@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (2026-06-12)
+
+- **`load.yml` is now idempotent for EDA rulebook activations** (#17) — `extra_vars`
+  in `eda_rulebook_activations.yml` was a dict, but the `ansible.eda`
+  `rulebook_activation` module declares `extra_vars` as `type: str` and EDA
+  stores it as block YAML. The dict coerced to a Python-repr string that never
+  matched EDA's stored value, so the module issued a PATCH on every re-run and
+  EDA rejected it with *"Activation is not in disabled mode and in stopped
+  status."* Re-authored `extra_vars` as a literal YAML string matching EDA's
+  representation; re-runs are now a clean no-op (`failed=0`).
+
 ### Added (2026-06-12)
 
 - **Automation Analytics / Insights enablement** (#14) — new
