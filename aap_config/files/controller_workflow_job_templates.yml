@@ -1,0 +1,97 @@
+---
+# NOTE: the infra.aap_configuration role uses `controller_workflows`.
+#
+# ── Workflow 1: Provision and Onboard ─────────────────────────────────────────
+#
+#   SNow catalog order (via EDA)
+#     └─► SNow Notice Started [parallel]
+#     └─► Provision VM (AWS Terraform)
+#           └─►success─► Register RHEL (CDN)
+#                          └─► Patch RHEL (full)
+#                                └─► Register Insights
+#                                      └─►success─► SNow Update INC (closed)
+#                                      └─►failure─► SNow Create INC (failure)
+#           └─►failure─► SNow Create INC (failure)
+#
+# ── Workflow 2: Remediate CVE ─────────────────────────────────────────────────
+#
+#   SNow INC from Insights (via EDA Business Rule)
+#     └─► SNow Notice Started [parallel]
+#     └─► Remediate CVE on affected host(s)
+#           └─►success─► SNow Close INC
+#           └─►failure─► SNow Update INC (failure / escalate)
+
+controller_workflows:
+  - name: "{{ workflow_provision_name }}"
+    organization: "{{ my_organization }}"
+    inventory: "{{ inventory_name }}"
+    survey_enabled: true
+    survey_spec:
+      name: ""
+      description: "VM size for the new RHEL server"
+      spec:
+        - question_name: VM size
+          variable: vm_size_tier
+          type: multiplechoice
+          required: true
+          default: medium
+          choices:
+            - small
+            - medium
+            - large
+    simplified_workflow_nodes:
+      - identifier: notice_started
+        unified_job_template: "{{ jt_snow_notice_started }}"
+        success_nodes: []
+        failure_nodes: []
+        always_nodes: []
+
+      - identifier: provision_vm
+        unified_job_template: "{{ jt_provision }}"
+        success_nodes:
+          - register_rhel
+        failure_nodes:
+          - snow_create_inc_provision_fail
+
+      - identifier: register_rhel
+        unified_job_template: "{{ jt_register_rhel }}"
+        success_nodes:
+          - patch_rhel
+
+      - identifier: patch_rhel
+        unified_job_template: "{{ jt_patch_rhel }}"
+        success_nodes:
+          - register_insights
+
+      - identifier: register_insights
+        unified_job_template: "{{ jt_register_insights }}"
+        success_nodes:
+          - snow_update_inc_success
+        failure_nodes:
+          - snow_create_inc_provision_fail
+
+      - identifier: snow_update_inc_success
+        unified_job_template: "{{ jt_snow_update_inc }}"
+
+      - identifier: snow_create_inc_provision_fail
+        unified_job_template: "{{ jt_snow_create_inc }}"
+
+  - name: "{{ workflow_remediate_name }}"
+    organization: "{{ my_organization }}"
+    inventory: "{{ inventory_name }}"
+    simplified_workflow_nodes:
+      - identifier: notice_remediation_started
+        unified_job_template: "{{ jt_snow_notice_started }}"
+
+      - identifier: remediate_cve
+        unified_job_template: "{{ jt_remediate_cve }}"
+        success_nodes:
+          - snow_close_inc
+        failure_nodes:
+          - snow_update_inc_failure
+
+      - identifier: snow_close_inc
+        unified_job_template: "{{ jt_snow_close_inc }}"
+
+      - identifier: snow_update_inc_failure
+        unified_job_template: "{{ jt_snow_update_inc }}"

@@ -1,0 +1,10 @@
+---
+controller_projects:
+  - name: "{{ project_name }}"
+    organization: "{{ my_organization }}"
+    scm_type: git
+    scm_url: "https://github.com/toharris-rh/aap.lightspeed.patching.git"
+    scm_branch: main
+    scm_update_on_launch: false
+    scm_clean: true
+    default_environment: "{{ my_execution_environment }}"

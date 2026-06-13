@@ -1,0 +1,144 @@
+---
+# NOTE: the infra.aap_configuration role uses `controller_templates` (not
+# `controller_job_templates`) — a known collection quirk.
+controller_templates:
+
+  # ── Provision ──────────────────────────────────────────────────────────────
+  - name: "{{ jt_provision }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/provision_vm_aws.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_aws }}"
+      - "{{ cred_controller }}"
+    extra_vars:
+      aws_region: "{{ aws_default_region }}"
+      aws_tf_state_bucket: "{{ aws_tf_state_bucket }}"
+      linux_ssh_public_key: "{{ linux_ssh_public_key }}"
+    survey_enabled: true
+    survey_spec:
+      name: ""
+      description: "Pick a VM size"
+      spec:
+        - question_name: VM size
+          question_description: "RHEL server t-shirt size on AWS"
+          variable: vm_size_tier
+          type: multiplechoice
+          required: true
+          default: medium
+          choices:
+            - small
+            - medium
+            - large
+
+  # ── Register RHEL ──────────────────────────────────────────────────────────
+  - name: "{{ jt_register_rhel }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/register_rhel.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_linux }}"
+      - "{{ cred_rh_cdn }}"
+    ask_limit_on_launch: true
+
+  # ── Patch RHEL (full) ──────────────────────────────────────────────────────
+  - name: "{{ jt_patch_rhel }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/patch_rhel.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_linux }}"
+      - "{{ cred_servicenow }}"
+    ask_limit_on_launch: true
+
+  # ── Register Insights ──────────────────────────────────────────────────────
+  - name: "{{ jt_register_insights }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/register_insights.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_linux }}"
+    ask_limit_on_launch: true
+
+  # ── CVE Remediation ────────────────────────────────────────────────────────
+  - name: "{{ jt_remediate_cve }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/remediate_cve.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_linux }}"
+      - "{{ cred_servicenow }}"
+    ask_limit_on_launch: true
+
+  # ── Demo Setup: Introduce CVE ──────────────────────────────────────────────
+  - name: "{{ jt_introduce_cve }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/introduce_cve.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_linux }}"
+    ask_limit_on_launch: true
+
+  # ── ServiceNow callbacks ───────────────────────────────────────────────────
+  - name: "{{ jt_snow_notice_started }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ control_inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/servicenow/notice_patch_started.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_servicenow }}"
+      - "{{ cred_controller }}"
+
+  - name: "{{ jt_snow_update_inc }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ control_inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/servicenow/update_incident.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_servicenow }}"
+    extra_vars:
+      inc_outcome: success
+
+  - name: "{{ jt_snow_close_inc }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ control_inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/servicenow/update_incident.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_servicenow }}"
+    extra_vars:
+      inc_outcome: success
+
+  - name: "{{ jt_snow_create_inc }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ control_inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/servicenow/create_incident.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_servicenow }}"

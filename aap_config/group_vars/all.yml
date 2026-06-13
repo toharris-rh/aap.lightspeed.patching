@@ -1,30 +1,97 @@
 ---
 # ============================================================================
-# aap_config/group_vars/all.yml
-# ============================================================================
-# CaC variables consumed by the AAP config-as-code playbooks and EDA
-# rulebook activations. Secrets (SN_PASSWORD, EDA_EVENT_STREAM_TOKEN, etc.)
-# are injected at runtime by AAP credentials — never stored here.
+# aap.lightspeed.patching CaC variables
+# NO secrets in version control. Every sensitive value resolved at runtime
+# from an environment variable (see docs/dev-environment.sh.example).
 # ============================================================================
 
+# --- AAP API connection -------------------------------------------------------
+aap_hostname: "{{ lookup('ansible.builtin.env', 'AAP_HOSTNAME') }}"
+aap_token: "{{ lookup('ansible.builtin.env', 'AAP_TOKEN') | default('', true) }}"
+aap_validate_certs: "{{ lookup('ansible.builtin.env', 'AAP_VALIDATE_CERTS') | default('false', true) | bool }}"
+aap_username: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_USERNAME') | default('admin', true) }}"
+aap_password: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_PASSWORD') }}"
+
+# --- Org + EE ----------------------------------------------------------------
 my_organization: "Default"
+ah_hostname: "{{ lookup('ansible.builtin.env', 'AH_HOSTNAME') | default(aap_hostname | urlsplit('hostname'), true) }}"
 
-# ---- EDA -------------------------------------------------------------------
-eda_controller_url: "https://your-aap-controller.example.com"
+ee_name: "Lightspeed Patching - EE"
+ee_version: "{{ lookup('ansible.builtin.env', 'LIGHTSPEED_PATCHING_EE_VERSION') | default('v1.0.0', true) }}"
+ee_image: "{{ lookup('ansible.builtin.env', 'LIGHTSPEED_PATCHING_EE_IMAGE') | default('registry.redhat.io/ansible-automation-platform/ee-supported-rhel9:latest', true) }}"
+my_execution_environment: "{{ ee_name }}"
 
-# Advisory severity filter — only advisories at or above this level
-# trigger automatic patching. Matches event.payload.severity values from
-# the Red Hat Insights webhook.
-eda_auto_patch_severities:
-  - Critical
-  - Important
+controller_cred_host: "{{ aap_hostname }}"
+controller_cred_username: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_USERNAME') | default('admin', true) }}"
+controller_cred_password: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_PASSWORD') }}"
 
-# ---- ServiceNow ------------------------------------------------------------
-# Change Request defaults
-snow_change_assignment_group: "Ansible Automation"
-snow_change_assigned_to: "service.ansible"
-snow_change_category: "Software"
-snow_change_type: "Standard"
+# --- AWS ---------------------------------------------------------------------
+aws_access_key_id: "{{ lookup('ansible.builtin.env', 'AWS_ACCESS_KEY_ID') }}"
+aws_secret_access_key: "{{ lookup('ansible.builtin.env', 'AWS_SECRET_ACCESS_KEY') }}"
+aws_default_region: "{{ lookup('ansible.builtin.env', 'AWS_DEFAULT_REGION') | default('us-east-1', true) }}"
+aws_tf_state_bucket: "{{ lookup('ansible.builtin.env', 'AWS_TF_STATE_BUCKET') }}"
 
-# CMDB CI class for RHEL hosts
-snow_ci_class: "cmdb_ci_linux_server"
+# --- SSH / Linux machine -----------------------------------------------------
+# SSH key: ~/.ssh/id_rsa (Q1 resolved 2026-06-12)
+linux_admin_username: "{{ lookup('ansible.builtin.env', 'LINUX_ADMIN_USERNAME') | default('ec2-user', true) }}"
+linux_ssh_public_key: "{{ lookup('ansible.builtin.env', 'LINUX_SSH_PUBLIC_KEY') }}"
+linux_ssh_private_key: "{{ lookup('ansible.builtin.env', 'LINUX_SSH_PRIVATE_KEY') }}"
+
+# --- Red Hat CDN -------------------------------------------------------------
+rh_org_id: "{{ lookup('ansible.builtin.env', 'RH_ORG_ID') }}"
+rh_activation_key: "{{ lookup('ansible.builtin.env', 'RH_ACTIVATION_KEY') }}"
+
+# --- ServiceNow --------------------------------------------------------------
+servicenow_instance: "{{ lookup('ansible.builtin.env', 'SN_HOST') }}"
+servicenow_username: "{{ lookup('ansible.builtin.env', 'SN_USERNAME') }}"
+servicenow_password: "{{ lookup('ansible.builtin.env', 'SN_PASSWORD') }}"
+
+# EDA bearer token — matched pair: same value in AAP EDA event-stream credential
+# AND in the ServiceNow Business Rule outbound REST header.
+# Generate: openssl rand -hex 32
+eda_event_stream_token: "{{ lookup('ansible.builtin.env', 'EDA_EVENT_STREAM_TOKEN') }}"
+
+# --- EDA object names --------------------------------------------------------
+eda_project_name: "Lightspeed Patching - EDA"
+eda_controller_credential: "Lightspeed Patching - EDA Controller"
+eda_snow_event_stream_credential: "Lightspeed Patching - ServiceNow Event Stream"
+eda_event_stream_name: "Lightspeed Patching - ServiceNow Event Stream"
+eda_scm_credential: "Lightspeed Patching - EDA Source Control"
+eda_catalog_activation_name: "Lightspeed Patching - Catch SNow Catalog Orders"
+eda_incident_activation_name: "Lightspeed Patching - Catch SNow Incidents"
+eda_decision_environment: "{{ lookup('ansible.builtin.env', 'LIGHTSPEED_EDA_DE') | default('Default Decision Environment', true) }}"
+
+# The ServiceNow catalog item short_description — EDA rulebook matches on this
+# exact string. Must equal the catalog item's Short description verbatim.
+my_snow_catalog_short_description: "Lightspeed Patching - Request RHEL VM"
+
+# --- AAP object names (namespace: "Lightspeed Patching -") -------------------
+project_name: "Lightspeed Patching"
+inventory_name: "lightspeed-patching"
+control_inventory_name: "lightspeed-patching-control"
+workflow_provision_name: "Lightspeed Patching - Provision and Onboard"
+workflow_remediate_name: "Lightspeed Patching - Remediate CVE"
+
+cred_aws: "Lightspeed Patching - AWS"
+cred_linux: "Lightspeed Patching - Linux Machine"
+cred_controller: "Lightspeed Patching - Controller"
+cred_servicenow: "Lightspeed Patching - ServiceNow"
+cred_rh_cdn: "Lightspeed Patching - Red Hat CDN"
+
+# Job template names
+jt_provision: "Lightspeed Patching - Provision VM (AWS)"
+jt_register_rhel: "Lightspeed Patching - Register RHEL"
+jt_patch_rhel: "Lightspeed Patching - Patch RHEL"
+jt_register_insights: "Lightspeed Patching - Register Insights"
+jt_introduce_cve: "Lightspeed Patching - Introduce CVE (Demo Setup)"
+jt_remediate_cve: "Lightspeed Patching - Remediate CVE"
+jt_snow_notice_started: "Lightspeed Patching - SNow Notice Started"
+jt_snow_update_inc: "Lightspeed Patching - SNow Update Incident"
+jt_snow_close_inc: "Lightspeed Patching - SNow Close Incident"
+jt_snow_create_inc: "Lightspeed Patching - SNow Create Incident (failure)"
+
+# T-shirt sizes → AWS instance types
+vm_size_map:
+  small: t3.medium      # 2 vCPU, 4 GiB
+  medium: t3.large      # 2 vCPU, 8 GiB
+  large: t3.xlarge      # 4 vCPU, 16 GiB

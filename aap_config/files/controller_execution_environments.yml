@@ -1,0 +1,6 @@
+---
+controller_execution_environments:
+  - name: "{{ ee_name }}"
+    image: "{{ ee_image }}"
+    pull: missing
+    organization: "{{ my_organization }}"

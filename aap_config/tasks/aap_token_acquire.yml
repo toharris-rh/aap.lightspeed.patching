@@ -1,0 +1,29 @@
+---
+- name: Detect a user-supplied AAP_TOKEN
+  ansible.builtin.set_fact:
+    cac_token_env: "{{ lookup('ansible.builtin.env', 'AAP_TOKEN') | default('', true) }}"
+
+- name: Use the supplied AAP_TOKEN as-is
+  ansible.builtin.set_fact:
+    aap_token: "{{ cac_token_env }}"
+    cac_token_minted: false
+  when: cac_token_env | length > 0
+
+- name: Mint a short-lived CaC token from username/password
+  ansible.platform.token:
+    aap_hostname: "{{ aap_hostname }}"
+    aap_username: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_USERNAME') | default('admin', true) }}"
+    aap_password: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_PASSWORD') }}"
+    aap_validate_certs: "{{ aap_validate_certs }}"
+    description: "lightspeed-patching CaC — auto-managed, deleted in always"
+    scope: "{{ cac_token_scope | default('write') }}"
+    state: present
+  register: cac_token
+  when: cac_token_env | length == 0
+
+- name: Adopt the minted token
+  ansible.builtin.set_fact:
+    aap_token: "{{ cac_token.ansible_facts.aap_token.token }}"
+    cac_token_minted: true
+    cac_token_obj: "{{ cac_token.ansible_facts.aap_token }}"
+  when: cac_token_env | length == 0

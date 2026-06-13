@@ -1,0 +1,11 @@
+---
+- name: Delete the short-lived CaC token
+  ansible.platform.token:
+    aap_hostname: "{{ aap_hostname }}"
+    aap_token: "{{ cac_token_obj.token }}"
+    aap_validate_certs: "{{ aap_validate_certs }}"
+    existing_token: "{{ cac_token_obj }}"
+    state: absent
+  when:
+    - cac_token_minted | default(false) | bool
+    - cac_token_obj is defined

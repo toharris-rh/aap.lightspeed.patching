@@ -1,0 +1,46 @@
+---
+# ============================================================================
+# rulebooks/servicenow_incident_events.yml
+# ============================================================================
+# EDA rulebook: listens for ServiceNow INC tickets created by Red Hat Insights
+# (via the native Insights→ServiceNow integration) and launches the CVE
+# remediation workflow.
+#
+# Flow:
+#   Red Hat Insights detects advisory on RHEL host
+#     → Insights → ServiceNow INC created (native integration)
+#     → ServiceNow Business Rule (watches INC table, Insights source)
+#         → POST to EDA event stream
+#     → THIS rulebook matches on source / category
+#     → run_workflow_template: Lightspeed Patching - Remediate CVE
+#
+# ⚠️  PENDING (Tony, Phase 5): validate the exact field on the SNow INC that
+#     identifies it as Insights-originated. The condition below uses
+#     event.payload.category — update once the real field is confirmed.
+# ============================================================================
+
+- name: Listen for ServiceNow incidents from Red Hat Insights
+  hosts: all
+  sources:
+    - ansible.eda.webhook:
+        host: 0.0.0.0
+        port: 5000
+
+  rules:
+    - name: Remediate CVE on Insights-originated incident
+      # TODO (Tony - Phase 5): replace condition with confirmed Insights INC field.
+      # Candidate fields from the SNow INC payload:
+      #   event.payload.category == "software"
+      #   event.payload.u_source == "Red Hat Insights"
+      #   event.payload.caller_id == "Red Hat Insights"
+      condition: event.payload.category == "software"
+      action:
+        run_workflow_template:
+          name: "Lightspeed Patching - Remediate CVE"
+          organization: "{{ my_organization }}"
+          job_args:
+            extra_vars:
+              incident_number: "{{ event.payload.number }}"
+              incident_sys_id: "{{ event.payload.sys_id }}"
+              advisory_id: "{{ event.payload.short_description | default('') }}"
+              affected_hosts: "{{ event.payload.cmdb_ci | default('') }}"

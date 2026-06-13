@@ -1,0 +1,72 @@
+---
+# ============================================================================
+# playbooks/patch_rhel.yml
+# ============================================================================
+# Fully patches a RHEL host using dnf. Runs on initial onboarding (all
+# packages) and can also be called for targeted advisory remediation.
+#
+# Uses snow_log to post per-host real-time work notes to the ServiceNow INC.
+#
+# Credentials: Lightspeed Patching - Linux Machine (SSH)
+#              Lightspeed Patching - ServiceNow (for snow_log)
+# ============================================================================
+
+- name: Patch RHEL host
+  hosts: all
+  gather_facts: true
+  become: true
+
+  vars:
+    advisory_id: ""   # set when patching a specific advisory
+
+  tasks:
+    - name: Log patch start to ServiceNow
+      ansible.builtin.include_role:
+        name: snow_log
+      vars:
+        snow_log_resource: incident
+        snow_log_ticket_number: "{{ ticket_number | default('') }}"
+        snow_log_ticket_sys_id: "{{ ticket_sys_id | default('') }}"
+        snow_log_message: >-
+          {{ inventory_hostname }}: Starting patch run
+          {{ '(advisory: ' ~ advisory_id ~ ')' if advisory_id else '(full system update)' }}.
+          Kernel before: {{ ansible_kernel }}.
+      when: ticket_number is defined and ticket_number | length > 0
+
+    - name: Apply all available updates
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+        update_only: true
+      register: dnf_result
+      when: advisory_id | length == 0
+
+    - name: Apply specific advisory
+      ansible.builtin.dnf:
+        name: "{{ advisory_id }}"
+        state: latest
+      register: dnf_result
+      when: advisory_id | length > 0
+
+    - name: Log patch result to ServiceNow
+      ansible.builtin.include_role:
+        name: snow_log
+      vars:
+        snow_log_resource: incident
+        snow_log_ticket_number: "{{ ticket_number | default('') }}"
+        snow_log_ticket_sys_id: "{{ ticket_sys_id | default('') }}"
+        snow_log_message: >-
+          {{ inventory_hostname }}: Patch complete.
+          {{ dnf_result.results | length if dnf_result.results is defined else 0 }} packages updated.
+          Reboot required: {{ dnf_result.changed | bool }}.
+      when: ticket_number is defined and ticket_number | length > 0
+
+    - name: Reboot if kernel or critical packages updated
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+      when: dnf_result.changed
+
+    - name: Publish patched hosts as workflow artifact
+      ansible.builtin.set_stats:
+        data:
+          patched_hosts: "{{ inventory_hostname }}"

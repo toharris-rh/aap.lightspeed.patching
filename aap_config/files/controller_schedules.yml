@@ -1,0 +1,4 @@
+---
+# Placeholder — add nightly teardown schedule once teardown playbook exists.
+# Pattern from dc1.azure: a schedule on the teardown workflow JT.
+controller_schedules: []

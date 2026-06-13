@@ -1,0 +1,64 @@
+---
+# ============================================================================
+# playbooks/introduce_cve.yml — DEMO SETUP ONLY
+# ============================================================================
+# Downgrades a package to a version with a known CVE so Red Hat Insights
+# will detect it and create a ServiceNow INC ticket via the native integration.
+#
+# ⚠️  Tony (Phase 5): fill in the target package and downrev version.
+#     Choose a package that:
+#       1. Has a known RHSA that Insights reports quickly
+#       2. Is available in an older version via CDN
+#       3. Does not break the host when downgraded
+#     Suggestions to evaluate:
+#       - openssl (frequent CVEs, fast Insights detection)
+#       - curl
+#       - bind-utils
+#
+# After running this playbook:
+#   insights-client --check-results  (or wait for next scheduled check-in)
+#   → Insights detects the advisory
+#   → ServiceNow INC created (native integration)
+#   → EDA fires → remediate_cve.yml runs → INC closed
+# ============================================================================
+
+- name: Introduce a known CVE for demo purposes
+  hosts: all
+  gather_facts: false
+  become: true
+
+  vars:
+    # TODO (Tony - Phase 5): set these
+    demo_package: ""          # e.g. openssl
+    demo_downrev_version: ""  # e.g. 3.0.7-18.el9_2
+    demo_advisory_id: ""      # e.g. RHSA-2024:1234
+
+  tasks:
+    - name: Assert demo package vars are set
+      ansible.builtin.assert:
+        that:
+          - demo_package | length > 0
+          - demo_downrev_version | length > 0
+        fail_msg: "Set demo_package and demo_downrev_version before running this playbook."
+
+    - name: Downgrade {{ demo_package }} to {{ demo_downrev_version }}
+      ansible.builtin.dnf:
+        name: "{{ demo_package }}-{{ demo_downrev_version }}"
+        state: present
+        allow_downgrade: true
+
+    - name: Confirm installed version
+      ansible.builtin.command:
+        cmd: "rpm -q {{ demo_package }}"
+      register: rpm_query
+      changed_when: false
+
+    - name: Show installed version
+      ansible.builtin.debug:
+        msg: "{{ rpm_query.stdout }} — CVE now present. Run insights-client --check-results to trigger detection."
+
+    - name: Trigger Insights check-in immediately
+      ansible.builtin.command:
+        cmd: insights-client --check-results
+      changed_when: false
+      failed_when: false
