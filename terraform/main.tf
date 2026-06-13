@@ -43,7 +43,8 @@ resource "aws_route_table_association" "public" {
 
 resource "aws_security_group" "demo" {
   name_prefix = "lsp-sg-"
-  description = "Lightspeed Patching demo — SSH, HTTP/S, ICMP, Cockpit"
+  # ASCII only — AWS rejects non-ASCII in a security group GroupDescription.
+  description = "Lightspeed Patching demo - SSH, HTTP/S, ICMP, Cockpit"
   vpc_id      = aws_vpc.demo.id
 
   ingress {
