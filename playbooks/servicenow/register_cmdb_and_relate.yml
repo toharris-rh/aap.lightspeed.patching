@@ -1,0 +1,118 @@
+---
+# ============================================================================
+# playbooks/servicenow/register_cmdb_and_relate.yml
+# ============================================================================
+# Ensures a provisioned RHEL host exists in the CMDB (cmdb_ci_linux_server) and
+# relates it to the "Lightspeed Patching Demo" Business Application
+# (cmdb_ci_business_app), creating the Business Application if it doesn't exist.
+# Idempotent — safe to re-run; create-if-missing for the app, the CI, and the
+# relationship.
+#
+# Inputs:
+#   cmdb_business_app   Business Application name (group_vars default
+#                       "Lightspeed Patching Demo")
+#   host_fqdn           the CI FQDN/name (defaults to linux_fqdn from the
+#                       provision set_stats)
+#   host_ip             optional public IP   (defaults to linux_public_ip)
+#   host_instance_id    optional EC2 id      (defaults to linux_instance_id)
+#
+# Credential: Lightspeed Patching - ServiceNow  (SN_* env vars)
+#
+# Shared-instance note: scoped entirely by sys_id after the name lookups; the
+# only new instance-wide object is the Business Application, which is the
+# explicit intent of this play.
+# ============================================================================
+
+- name: Register host in CMDB and relate it to the Business Application
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    cmdb_rel_type: "Uses::Used by"
+    ci_resource: cmdb_ci_linux_server
+    ba_resource: cmdb_ci_business_app
+    cmdb_ci_fqdn: "{{ host_fqdn | default(linux_fqdn | default('')) }}"
+    cmdb_ci_ip: "{{ host_ip | default(linux_public_ip | default('')) }}"
+    cmdb_ci_instance: "{{ host_instance_id | default(linux_instance_id | default('')) }}"
+
+  tasks:
+    - name: Require a host FQDN
+      ansible.builtin.assert:
+        that:
+          - cmdb_ci_fqdn | length > 0
+          - cmdb_business_app | default('') | length > 0
+        fail_msg: >-
+          Provide host_fqdn=<fqdn> (or linux_fqdn) and cmdb_business_app.
+
+    # --- Business Application (create if missing) ----------------------------
+    - name: Look up the Business Application by name
+      servicenow.itsm.api_info:
+        resource: "{{ ba_resource }}"
+        sysparm_query: "name={{ cmdb_business_app }}"
+      register: ba_lookup
+
+    - name: Create the Business Application if it does not exist
+      when: ba_lookup.record | length == 0
+      servicenow.itsm.api:
+        action: post
+        resource: "{{ ba_resource }}"
+        data:
+          name: "{{ cmdb_business_app }}"
+          short_description: >-
+            RHEL hosts provisioned and patched by the Lightspeed Patching demo
+            (AAP + EDA + Red Hat Insights + ServiceNow).
+          operational_status: "1"
+      register: ba_created
+
+    - name: Resolve the Business Application sys_id
+      ansible.builtin.set_fact:
+        ba_sys_id: "{{ ba_lookup.record[0].sys_id if (ba_lookup.record | length > 0) else ba_created.record.sys_id }}"
+
+    # --- Host CI (create if missing) -----------------------------------------
+    - name: Look up the host CI by FQDN/name
+      servicenow.itsm.api_info:
+        resource: "{{ ci_resource }}"
+        sysparm_query: "fqdn={{ cmdb_ci_fqdn }}^ORname={{ cmdb_ci_fqdn }}"
+      register: ci_lookup
+
+    - name: Create the host CI if it does not exist
+      when: ci_lookup.record | length == 0
+      servicenow.itsm.api:
+        action: post
+        resource: "{{ ci_resource }}"
+        data:
+          name: "{{ cmdb_ci_fqdn }}"
+          fqdn: "{{ cmdb_ci_fqdn }}"
+          ip_address: "{{ cmdb_ci_ip | default(omit, true) }}"
+          os: "Linux Red Hat"
+          short_description: "RHEL 9 (AWS EC2 {{ cmdb_ci_instance | default('n/a', true) }}) — Lightspeed Patching demo"
+          operational_status: "1"
+      register: ci_created
+
+    - name: Resolve the host CI sys_id
+      ansible.builtin.set_fact:
+        ci_sys_id: "{{ ci_lookup.record[0].sys_id if (ci_lookup.record | length > 0) else ci_created.record.sys_id }}"
+
+    # --- Relationship (create if missing) ------------------------------------
+    - name: Check for an existing relationship
+      servicenow.itsm.api_info:
+        resource: cmdb_rel_ci
+        sysparm_query: "parent={{ ci_sys_id }}^child={{ ba_sys_id }}"
+      register: rel_lookup
+
+    - name: Relate the host CI to the Business Application (Uses::Used by)
+      when: rel_lookup.record | length == 0
+      servicenow.itsm.api:
+        action: post
+        resource: cmdb_rel_ci
+        data:
+          parent: "{{ ci_sys_id }}"
+          child: "{{ ba_sys_id }}"
+          type: "{{ cmdb_rel_type }}"
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg: >-
+          CI {{ cmdb_ci_fqdn }} ({{ ci_sys_id }}) related to Business Application
+          '{{ cmdb_business_app }}' ({{ ba_sys_id }}) via '{{ cmdb_rel_type }}'.
