@@ -1,0 +1,24 @@
+---
+# Collections baked into the Lightspeed Patching EE. Red Hat CERTIFIED
+# (Automation Hub) versions preferred — pinned, resolved 2026-06-12 from
+# rh_certified (console.redhat.com). No community collections: RHEL registration
+# uses the certified redhat.rhel_system_roles.rhc role (not
+# community.general.redhat_subscription).
+collections:
+  # AWS — the Provision VM playbook + future dynamic inventory / EC2 modules.
+  - name: amazon.aws
+    version: "11.3.0"
+
+  # RHEL System Roles — the certified `rhc` role registers hosts to the Red Hat
+  # CDN (replaces community.general.redhat_subscription in register_rhel.yml).
+  - name: redhat.rhel_system_roles
+    version: "1.120.5"
+
+  # ServiceNow ITSM — the servicenow/* callback, CMDB and incident playbooks.
+  - name: servicenow.itsm
+    version: "2.15.1"
+
+  # ansible.platform — register the provisioned host/group in the AAP inventory
+  # (provision_vm_aws.yml uses ansible.platform.host / .group).
+  - name: ansible.platform
+    version: "2.7.20260604"

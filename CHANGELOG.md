@@ -5,6 +5,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-06-12)
+
+- **Custom terraform-enabled Execution Environment** (#19) — provisioning from
+  AAP failed because the provision playbook shells out to the `terraform` CLI,
+  absent from every stock EE. New ansible-builder context
+  (`execution-environment.yml` + `collections/requirements.yml`) on the
+  `ee-minimal-rhel9` base bakes in Terraform 1.15.6 plus certified collections
+  (`amazon.aws` 11.3.0, `redhat.rhel_system_roles` 1.120.5, `servicenow.itsm`
+  2.15.1, `ansible.platform` 2.7.20260604). Mirrors the dc1.azure pattern:
+  immutable semver tags, `microdnf upgrade` hardening, `python3.11-devel`+`wheel`
+  for systemd-python.
+- **EE published to quay.io → Private Automation Hub → Controller** — new
+  `aap_config/files/hub_ee_registries.yml` + `hub_ee_repositories.yml` sync the
+  image from `quay.io/zigfreed/lightspeed-patching-ee` into PAH; the
+  `Lightspeed Patching - Hub Registry` Container Registry credential lets
+  Controller pull it. `controller_execution_environments.yml` now points at the
+  PAH copy (`pull: missing`) with a description that enumerates the pinned
+  contents. `docs/execution-environment.md` documents build → publish → load.
+- **`automation-hub` skill** — talking to Red Hat Automation Hub: certified-vs-
+  community preference, resolving certified versions via the Hub API, EE builds.
+
+### Changed (2026-06-12)
+
+- **RHEL registration uses the certified `redhat.rhel_system_roles.rhc` role**
+  instead of `community.general.redhat_subscription` (`register_rhel.yml`),
+  dropping `community.general` entirely so the stack is all-certified.
+
 ### Fixed (2026-06-12)
 
 - **`load.yml` is now idempotent for EDA rulebook activations** (#17) — `extra_vars`

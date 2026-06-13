@@ -26,12 +26,17 @@
           - rh_activation_key | length > 0
         fail_msg: "RH_ORG_ID and RH_ACTIVATION_KEY must be set (use the 'Lightspeed Patching - Red Hat CDN' credential)."
 
-    - name: Register to Red Hat CDN
-      community.general.redhat_subscription:
-        state: present
-        org_id: "{{ rh_org_id }}"
-        activationkey: "{{ rh_activation_key }}"
-        auto_attach: true
+    - name: Register to Red Hat CDN (certified rhc system role)
+      ansible.builtin.include_role:
+        name: redhat.rhel_system_roles.rhc
+      vars:
+        rhc_state: present
+        rhc_auth:
+          activation_keys:
+            keys:
+              - "{{ rh_activation_key }}"
+          organization_id: "{{ rh_org_id }}"
+        rhc_auto_attach: true
 
     - name: Log registration to ServiceNow
       ansible.builtin.include_role:
