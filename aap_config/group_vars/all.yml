@@ -55,6 +55,14 @@ servicenow_password: "{{ lookup('ansible.builtin.env', 'SN_PASSWORD') }}"
 # Generate: openssl rand -hex 32
 eda_event_stream_token: "{{ lookup('ansible.builtin.env', 'EDA_EVENT_STREAM_TOKEN') }}"
 
+# Red Hat service-account creds for Automation Analytics / Insights — feed the
+# Automation Calculator on console.redhat.com (consumed by
+# files/controller_settings.yml). These are console.redhat.com SERVICE ACCOUNT
+# client ID/secret, NOT a portal username/password. Leave unset to skip
+# analytics auth; tracking still flips on but uploads won't authenticate.
+redhat_subscriptions_client_id: "{{ lookup('ansible.builtin.env', 'REDHAT_SUBSCRIPTIONS_CLIENT_ID') | default('', true) }}"
+redhat_subscriptions_client_secret: "{{ lookup('ansible.builtin.env', 'REDHAT_SUBSCRIPTIONS_CLIENT_SECRET') | default('', true) }}"
+
 # --- EDA object names --------------------------------------------------------
 eda_project_name: "Lightspeed Patching - EDA"
 eda_controller_credential: "Lightspeed Patching - EDA Controller"

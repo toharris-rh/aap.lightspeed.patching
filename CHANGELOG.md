@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-06-12)
+
+- **Automation Analytics / Insights enablement** (#14) — new
+  `aap_config/files/controller_settings.yml` (applied via the
+  `infra.aap_configuration.controller_settings` role) turns on
+  `INSIGHTS_TRACKING_STATE` and sets the console.redhat.com service-account
+  `SUBSCRIPTIONS_CLIENT_ID` / `SUBSCRIPTIONS_CLIENT_SECRET`, so the Automation
+  Calculator stops reporting *"Missing Gather data for Automation Analytics."*
+  Added the `redhat_subscriptions_client_id` / `redhat_subscriptions_client_secret`
+  env-var lookups to `group_vars/all.yml` and wired `controller_settings.yml`
+  into `load.yml`. Mirrors the working `dc1.azure` pattern.
+
 ### Fixed (2026-06-12)
 
 - **EDA rulebook activations attach the Controller credential via `eda_credentials`**
