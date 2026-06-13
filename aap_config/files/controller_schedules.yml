@@ -1,3 +1,22 @@
 ---
-# Placeholder — add nightly teardown schedule once teardown playbook exists.
-controller_schedules: []
+# Consumed by the infra.aap_configuration.controller_schedules role.
+# Two nightly teardown schedules so the demo VM never runs overnight (keeps the
+# AWS bill at ~$0 between demos). The 6 PM run is primary; the 10 PM run is a
+# safety net for late work sessions. The teardown JT is idempotent — if no VM
+# exists, terraform destroy is a no-op, so the second run costs nothing.
+#
+# Timezone: America/Phoenix observes NO daylight saving, so the times are fixed
+# year-round regardless of server timezone (encoded with TZID). Change the TZID
+# if you want a different local time.
+controller_schedules:
+  - name: "{{ teardown_schedule_name }}"
+    unified_job_template: "{{ jt_teardown }}"
+    description: "Tear down the Lightspeed Patching demo VM daily at 6 PM America/Phoenix (no DST)."
+    rrule: "DTSTART;TZID=America/Phoenix:20260613T180000 RRULE:FREQ=DAILY;INTERVAL=1"
+    enabled: true
+
+  - name: "{{ teardown_schedule_name_late }}"
+    unified_job_template: "{{ jt_teardown }}"
+    description: "Safety-net teardown at 10 PM America/Phoenix — catches late work sessions."
+    rrule: "DTSTART;TZID=America/Phoenix:20260613T220000 RRULE:FREQ=DAILY;INTERVAL=1"
+    enabled: true

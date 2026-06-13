@@ -1,0 +1,120 @@
+---
+# ============================================================================
+# playbooks/teardown_vm_aws.yml
+# ============================================================================
+# Tears down the Lightspeed Patching demo VM:
+#   1. Unregisters the RHEL host from the Red Hat CDN AND Red Hat Insights
+#      (rhc state: absent) — while the host is still up.
+#   2. terraform destroy — removes the EC2 instance + VPC stack.
+#   3. Deregisters the host from the AAP lightspeed-patching inventory.
+#
+# Idempotent: if no VM / no Terraform state exists, the unregister play is
+# skipped (host unreachable) and destroy is a no-op — so the nightly 6 PM and
+# 10 PM schedules are safe to both fire.
+#
+# Required JT credentials:
+#   Lightspeed Patching - AWS         (AWS_* for terraform destroy)
+#   Lightspeed Patching - Linux Machine (SSH for the unregister play)
+#   Lightspeed Patching - Controller  (mint a token for inventory deregistration)
+# ============================================================================
+
+# --- Play 1: unregister on the host (best-effort; host may already be gone) ---
+- name: Unregister the RHEL host from the Red Hat CDN and Insights
+  hosts: all
+  gather_facts: false
+  become: true
+  ignore_unreachable: true   # already-destroyed host -> skip cleanly
+
+  tasks:
+    - name: Unregister from CDN + Insights (certified rhc role, state absent)
+      ansible.builtin.include_role:
+        name: redhat.rhel_system_roles.rhc
+      vars:
+        rhc_state: absent
+
+# --- Play 2: destroy the infra and deregister from AAP ---------------------
+- name: Tear down the AWS VM and deregister it from AAP
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    terraform_dir: "{{ playbook_dir }}/../terraform"
+    lsp_inventory: "{{ inventory_name | default('lightspeed-patching') }}"
+    aws_region: "{{ lookup('ansible.builtin.env', 'AWS_DEFAULT_REGION') | default('us-east-1', true) }}"
+    aws_tf_state_bucket: "{{ lookup('ansible.builtin.env', 'AWS_TF_STATE_BUCKET') }}"
+    linux_ssh_public_key: "{{ lookup('ansible.builtin.env', 'LINUX_SSH_PUBLIC_KEY') }}"
+    aap_hostname: "{{ lookup('ansible.builtin.env', 'AAP_HOSTNAME') }}"
+    aap_validate_certs: "{{ lookup('ansible.builtin.env', 'AAP_VALIDATE_CERTS') | default('false', true) }}"
+
+  tasks:
+    - name: Initialize Terraform (S3 backend)
+      ansible.builtin.command:
+        cmd: >-
+          terraform init -input=false -no-color
+          -backend-config="bucket={{ aws_tf_state_bucket }}"
+          -backend-config="key=lightspeed-patching.tfstate"
+          -backend-config="region={{ aws_region }}"
+        chdir: "{{ terraform_dir }}"
+      changed_when: false
+
+    - name: Read Terraform outputs (capture the host before destroy)
+      ansible.builtin.command:
+        cmd: terraform output -json
+        chdir: "{{ terraform_dir }}"
+      changed_when: false
+      failed_when: false
+      register: tf_output
+
+    - name: Parse the Linux host FQDN (only if state still exists)
+      when:
+        - tf_output.rc == 0
+        - tf_output.stdout | default('') | length > 0
+      ansible.builtin.set_fact:
+        teardown_linux_fqdn: "{{ ((tf_output.stdout | from_json).linux_inventory.value | default({})).host | default('') }}"
+
+    - name: Destroy Terraform-managed resources
+      ansible.builtin.command:
+        cmd: >-
+          terraform destroy -input=false -auto-approve -no-color
+          -var vm_size_tier={{ vm_size_tier | default('medium') }}
+          -var linux_admin_username={{ linux_admin_username | default('ec2-user') }}
+        chdir: "{{ terraform_dir }}"
+      environment:
+        # Same region/cred handling as the provision apply (the AWS credential
+        # injects the key/secret; providers.tf reads AWS_DEFAULT_REGION).
+        AWS_DEFAULT_REGION: "{{ aws_region }}"
+        TF_VAR_linux_ssh_public_key: "{{ linux_ssh_public_key }}"
+      no_log: true
+      changed_when: true
+      register: tf_destroy_result
+      ignore_errors: true
+
+    - name: Show Terraform error (if destroy failed)
+      when: tf_destroy_result is failed
+      ansible.builtin.debug:
+        msg: "{{ tf_destroy_result.stderr_lines | default([tf_destroy_result.stderr | default('no stderr')]) }}"
+
+    - name: Fail if Terraform destroy failed
+      when: tf_destroy_result is failed
+      ansible.builtin.fail:
+        msg: "terraform destroy exited {{ tf_destroy_result.rc | default('?') }}"
+
+    - name: Deregister the host from the AAP inventory
+      when: teardown_linux_fqdn | default('') | length > 0
+      block:
+        - name: Acquire AAP token
+          ansible.builtin.include_tasks: "{{ playbook_dir }}/../aap_config/tasks/aap_token_acquire.yml"
+
+        - name: Remove the host from the lightspeed-patching inventory
+          ansible.controller.host:
+            controller_host: "{{ aap_hostname }}"
+            aap_token: "{{ aap_token }}"
+            validate_certs: "{{ aap_validate_certs }}"
+            name: "{{ teardown_linux_fqdn }}"
+            inventory: "{{ lsp_inventory }}"
+            state: absent
+
+      always:
+        - name: Release AAP token
+          ansible.builtin.include_tasks: "{{ playbook_dir }}/../aap_config/tasks/aap_token_release.yml"

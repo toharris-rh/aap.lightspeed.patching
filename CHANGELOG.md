@@ -7,6 +7,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added (2026-06-13)
 
+- **Nightly teardown** — `playbooks/teardown_vm_aws.yml` unregisters the host
+  from the Red Hat CDN **and** Insights (`rhc` state absent), then `terraform
+  destroy`s the VM and deregisters it from the AAP inventory. New
+  `Lightspeed Patching - Teardown VM (AWS)` JT and two schedules (6 PM + 10 PM
+  America/Phoenix, no DST). Idempotent — no VM means a clean no-op.
+
+### Added (2026-06-13)
+
 - **`playbooks/servicenow/register_cmdb_and_relate.yml`** — registers a host in
   the CMDB (`cmdb_ci_linux_server`, create-if-missing) and relates it to the
   **"Lightspeed Patching Demo"** Business Application (`cmdb_ci_business_app`,
