@@ -9,7 +9,7 @@ eda_rulebook_activations:
     event_streams:
       - event_stream: "{{ eda_event_stream_name }}"
         source_name: "__SOURCE_1"
-    credentials:
+    eda_credentials:
       - "{{ eda_controller_credential }}"
     extra_vars:
       my_organization: "{{ my_organization }}"
@@ -25,7 +25,7 @@ eda_rulebook_activations:
     event_streams:
       - event_stream: "{{ eda_event_stream_name }}"
         source_name: "__SOURCE_1"
-    credentials:
+    eda_credentials:
       - "{{ eda_controller_credential }}"
     extra_vars:
       my_organization: "{{ my_organization }}"
