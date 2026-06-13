@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars (gitignored) and fill in values.
+# AWS credentials come from env vars (source docs/dev-environment.sh).
+
+# T-shirt size — surfaced as the AAP JT survey question.
+vm_size_tier = "medium"   # small | medium | large
+
+# SSH public key — must match the key in docs/dev-environment.sh.
+# linux_ssh_public_key = "ssh-rsa AAAA..."
+
+# Networking — defaults are fine for an isolated demo VPC.
+# vpc_cidr    = "10.50.0.0/16"
+# subnet_cidr = "10.50.1.0/24"
+
+# Tighten to your egress IP for real use (default is open).
+# allowed_source_cidrs = ["203.0.113.42/32"]

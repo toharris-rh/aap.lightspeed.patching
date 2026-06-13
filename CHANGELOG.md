@@ -18,6 +18,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added (2026-06-12)
 
+- **AWS Terraform infrastructure** (`terraform/`) — full VPC stack (VPC, public
+  subnet, IGW, route table, security group), RHEL 9 AMI lookup, EC2 instance
+  with t-shirt sizing (small/medium/large), SSH key pair injection, S3 remote
+  state backend. Ported from the dc1.azure pattern.
+- **`playbooks/provision_vm_aws.yml`** — Terraform wrapper playbook: init, apply,
+  parse outputs, register the new host in the AAP `lightspeed-patching`
+  inventory, publish `set_stats` for downstream workflow nodes, with token
+  cleanup and rescue block for ServiceNow incident path.
+
 - **Native Red Hat Insights → ServiceNow integration documented as-built** —
   `docs/native-servicenow-integration.md`: covers the "Flow Templates for Red
   Hat Insights" ServiceNow app, the single integration-user model, the manual
