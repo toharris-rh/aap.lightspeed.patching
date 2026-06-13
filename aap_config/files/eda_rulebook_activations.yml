@@ -11,9 +11,15 @@ eda_rulebook_activations:
         source_name: "__SOURCE_1"
     eda_credentials:
       - "{{ eda_controller_credential }}"
-    extra_vars:
-      my_organization: "{{ my_organization }}"
-      my_snow_catalog_short_description: "{{ my_snow_catalog_short_description }}"
+    # extra_vars MUST be a YAML string, not a dict: the ansible.eda
+    # rulebook_activation module declares extra_vars as type:str and EDA stores
+    # it as block YAML. A dict coerces to a Python-repr string that never
+    # matches what EDA returns, so the module PATCHes on every re-run and EDA
+    # rejects updates to a running activation. Matching EDA's stored block-YAML
+    # form keeps re-runs idempotent. (issue #17)
+    extra_vars: |
+      my_organization: {{ my_organization }}
+      my_snow_catalog_short_description: {{ my_snow_catalog_short_description }}
     enabled: true
 
   - name: "{{ eda_incident_activation_name }}"
@@ -27,6 +33,7 @@ eda_rulebook_activations:
         source_name: "__SOURCE_1"
     eda_credentials:
       - "{{ eda_controller_credential }}"
-    extra_vars:
-      my_organization: "{{ my_organization }}"
+    # YAML string, not a dict — see the note on the catalog activation (issue #17).
+    extra_vars: |
+      my_organization: {{ my_organization }}
     enabled: true

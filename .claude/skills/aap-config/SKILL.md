@@ -74,9 +74,9 @@ eda_rulebook_activations:
     organization: "{{ my_organization }}"
     rulebook: servicenow_events.yml          # bare filename, NOT rulebooks/servicenow_events.yml
     decision_environment: "{{ eda_decision_environment }}"
-    extra_vars:                              # inject rulebook condition vars from CaC
-      my_organization: "{{ my_organization }}"
-      my_snow_catalog_short_description: "{{ my_snow_catalog_short_description }}"
+    extra_vars: |                            # YAML *string*, not a dict (see Gotcha 5)
+      my_organization: {{ my_organization }}
+      my_snow_catalog_short_description: {{ my_snow_catalog_short_description }}
     event_streams:
       - event_stream: "{{ eda_event_stream_name }}"
         source_name: __SOURCE_1              # EDA names an unnamed rulebook source __SOURCE_1
@@ -109,6 +109,25 @@ action, that var must be injected here or the activation errors at runtime
 **Gotcha 4 — `__SOURCE_1`.** An unnamed source in a rulebook is auto-named
 `__SOURCE_1`; bind the event stream to it via `source_name: __SOURCE_1`.
 
+**Gotcha 5 — `extra_vars` must be a YAML *string*, not a dict** (idempotency).
+The `ansible.eda.rulebook_activation` module declares `extra_vars` as
+`type: str`, and EDA stores it as block YAML. Passing a dict makes Ansible
+coerce it to a Python-repr string (`{'my_organization': ...}`) that never equals
+EDA's stored value, so the module perceives a change on **every** re-run and
+issues a PATCH — which EDA forbids on a running activation, failing with
+*"Activation is not in disabled mode and in stopped status."* Author it as a
+literal block scalar matching EDA's stored form so re-runs are a true no-op
+(issue #17):
+
+```yaml
+extra_vars: |
+  my_organization: {{ my_organization }}
+  my_snow_catalog_short_description: {{ my_snow_catalog_short_description }}
+```
+
+Note `dc1.azure` / `aap.eda.dynatrace*` still use the dict form and carry the
+same latent bug — they just haven't been re-run against a running activation.
+
 ### EDA credentials (`files/eda_credentials.yml`)
 
 EDA has its **own** credential store, separate from `controller_credentials`.
@@ -129,3 +148,17 @@ this credential's type; there is no separate `event_stream_type` field).
   change being live. Activation *definitions* in `files/` are read locally and
   don't need a merge to test. (`main` is protected — see the repo-workflow skill.)
 - **Update `CHANGELOG.md`** for every change.
+
+## Upstream reference
+
+The CaC roles (`dispatch`, `eda_rulebook_activations`,
+`controller_settings`, …) come from the **redhat-cop `infra.aap_configuration`**
+collection. When a role's behavior is unclear (which key it reads, idempotency
+quirks, arg specs), read the role source — locally under
+`~/.ansible/collections/ansible_collections/infra/aap_configuration/roles/`, or
+upstream:
+
+- Collection (4.6.0 branch): <https://github.com/redhat-cop/infra.aap_configuration/tree/release/4.6.0>
+
+`aap_config/requirements.yml` currently pins `infra.aap_configuration` 4.4.0;
+check that pin before assuming a 4.6.0 feature/fix is present.
