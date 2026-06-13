@@ -31,14 +31,15 @@
         name: redhat.rhel_system_roles.rhc
       vars:
         rhc_state: present
+        # The org id is the TOP-LEVEL rhc_organization var — the role's
+        # subscription-manager task does org_id: "{{ rhc_organization }}".
+        # It is NOT read from rhc_auth (top level or under activation_keys);
+        # putting it there gives "org_id is required when using activationkey".
+        rhc_organization: "{{ rh_org_id }}"
         rhc_auth:
           activation_keys:
             keys:
               - "{{ rh_activation_key }}"
-            # organization_id belongs UNDER activation_keys (the rhc role reads
-            # it there); at the rhc_auth top level it's ignored -> "org_id is
-            # required when using activationkey".
-            organization_id: "{{ rh_org_id }}"
         rhc_auto_attach: true
 
     - name: Log registration to ServiceNow
