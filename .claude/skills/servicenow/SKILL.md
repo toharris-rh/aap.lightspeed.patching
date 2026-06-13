@@ -28,7 +28,8 @@ Red Hat Insights/Lightspeed advisory (Security; Critical|Important)
       ├── [parallel] playbooks/servicenow/notice_patch_started.yml    → CHG (Implement) + live AAP link
       ├── patch RHEL hosts → snow_log role → real-time work note per host
       ├── [success] update_change_request.yml (Closed) + update_cmdb_patch_status.yml
-      └── [failure] create_incident.yml (INC) + update_change_request.yml (Cancelled)
+      ├── [failure] create_incident.yml (INC) + update_change_request.yml (Cancelled)
+      └── [either]  update_incident.yml (resolve INC on success / update on failure)
 ```
 
 Full design doc: `docs/servicenow-integration.md`.
@@ -79,6 +80,7 @@ All in `docs/dev-environment.sh` (gitignored). Template:
 | `playbooks/servicenow/update_change_request.yml` | Close CHG (success) / Cancel (failure) |
 | `playbooks/servicenow/update_cmdb_patch_status.yml` | Update CI `install_date` (last patched) |
 | `playbooks/servicenow/create_incident.yml` | Open INC on patch failure |
+| `playbooks/servicenow/update_incident.yml` | Update/resolve INC (in_progress / success / failure) |
 | `playbooks/roles/snow_log/` | Real-time per-host work notes during patching |
 
 ## Change Request states

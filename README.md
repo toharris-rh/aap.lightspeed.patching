@@ -37,7 +37,7 @@ identify, remediate, and record CVEs and advisories — with full ITSM integrati
 - Ansible Automation Platform 2.4+
 - Red Hat Lightspeed subscription
 - RHEL hosts registered to Red Hat Insights
-- `ansible.cfg` configured (see `ansible.cfg.example`)
+- `~/.ansible.cfg` configured with Automation Hub token (see `ansible.cfg.example`)
 
 ---
 
@@ -46,8 +46,9 @@ identify, remediate, and record CVEs and advisories — with full ITSM integrati
 ```bash
 git clone https://github.com/toharris-rh/aap.lightspeed.patching.git
 cd aap.lightspeed.patching
-cp ansible.cfg.example ansible.cfg
-# Edit ansible.cfg with your AAP controller URL and credentials
+cp ansible.cfg.example ~/.ansible.cfg
+# Edit ~/.ansible.cfg — replace REPLACE_ME_AUTOMATION_HUB_OFFLINE_TOKEN
+# with your token from https://console.redhat.com/ansible/automation-hub/token
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and

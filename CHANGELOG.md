@@ -26,6 +26,38 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   parse outputs, register the new host in the AAP `lightspeed-patching`
   inventory, publish `set_stats` for downstream workflow nodes, with token
   cleanup and rescue block for ServiceNow incident path.
+- **`playbooks/servicenow/update_incident.yml`** — update or resolve a ServiceNow
+  incident created by `create_incident.yml`. One playbook drives both the
+  "SNow Update Incident" and "SNow Close Incident" JTs via `inc_outcome`
+  (`in_progress` / `success` / `failure`). Adapted from dc1.azure
+  `update_ritm.yml` for the INC pattern.
+- **`ansible.cfg.example`** — Automation Hub configuration template (Red Hat
+  Certified + Validated + Community Galaxy). Copy to `~/.ansible.cfg` and fill
+  in token.
+- **Gateway settings** (`aap_config/files/gateway_settings.yml`) — prelogin
+  warning banner and AAP gateway configuration (token expiration, basic auth,
+  password policy).
+- **Gateway organization** (`aap_config/files/gateway_organizations.yml`) —
+  "IT Service Automation" org with Automation Hub certified + validated + Galaxy
+  credentials.
+- **Automation Hub galaxy credentials** — "Automation Hub - certified" and
+  "Automation Hub - validated" credentials in `controller_credentials.yml`,
+  reading the offline token from `~/.ansible.cfg`.
+
+### Changed (2026-06-12)
+
+- **CaC load.yml** — wrapped tasks in `block/always` so the token release runs
+  even on failure (Ansible requires `always:` inside a `block:`, not at play
+  level).
+- **Organization** — changed `my_organization` from `"Default"` to
+  `"IT Service Automation"` in `aap_config/group_vars/all.yml`.
+- **ServiceNow ITSM credential type** — added as a custom credential type in
+  `controller_credential_types.yml` (not built in to fresh AAP instances). Uses
+  `!unsafe` injector pattern from dc1.azure.
+- **Red Hat CDN credential type** — fixed injectors to use `!unsafe` pattern.
+- **JT fix** — `SNow Update Incident` now uses `inc_outcome: in_progress`
+  (was copy-pasted as `success`).
+- **README.md** — fixed stale `ansible.cfg` reference to point to `~/.ansible.cfg`.
 
 - **Native Red Hat Insights → ServiceNow integration documented as-built** —
   `docs/native-servicenow-integration.md`: covers the "Flow Templates for Red

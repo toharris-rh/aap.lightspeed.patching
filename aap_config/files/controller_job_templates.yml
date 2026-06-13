@@ -119,7 +119,7 @@ controller_templates:
     credentials:
       - "{{ cred_servicenow }}"
     extra_vars:
-      inc_outcome: success
+      inc_outcome: in_progress
 
   - name: "{{ jt_snow_close_inc }}"
     job_type: run

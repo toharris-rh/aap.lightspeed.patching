@@ -12,8 +12,12 @@ aap_validate_certs: "{{ lookup('ansible.builtin.env', 'AAP_VALIDATE_CERTS') | de
 aap_username: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_USERNAME') | default('admin', true) }}"
 aap_password: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_PASSWORD') }}"
 
+# --- Automation Hub (Galaxy credentials for the org) -------------------------
+hub_token: "{{ lookup('ini', 'token section=galaxy_server.rh_certified file=~/.ansible.cfg') }}"
+hub_auth_url: "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token"
+
 # --- Org + EE ----------------------------------------------------------------
-my_organization: "Default"
+my_organization: "IT Service Automation"
 ah_hostname: "{{ lookup('ansible.builtin.env', 'AH_HOSTNAME') | default(aap_hostname | urlsplit('hostname'), true) }}"
 
 ee_name: "Lightspeed Patching - EE"

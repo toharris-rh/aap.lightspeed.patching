@@ -1,0 +1,108 @@
+---
+# ============================================================================
+# playbooks/servicenow/update_incident.yml
+# ============================================================================
+# Updates or resolves a ServiceNow incident created by create_incident.yml.
+# One playbook drives BOTH the "Update" and "Close" JTs via inc_outcome
+# (set per JT in extra_vars). Guarded on incident_number so non-incident
+# workflow runs no-op.
+#
+# Adapted from dc1.azure update_ritm.yml for the incident (INC) pattern.
+#
+# JT extra_vars:
+#   inc_outcome   in_progress | success | failure
+#
+# Workflow artifacts consumed:
+#   create_incident_number    INC number (from create_incident.yml set_stats)
+#   advisory_id               advisory being patched
+#   failed_hosts              hosts that failed patching
+#   patched_hosts             hosts that were patched successfully
+#   patch_my_error            error message from the rescue block
+#   patch_my_job_id           AAP job ID of the patch run
+#
+# Credential: Lightspeed Patching - ServiceNow  (SN_* env vars)
+# ============================================================================
+
+- name: Update or resolve a ServiceNow incident
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    inc_outcome: success
+    incident_number: "{{ create_incident_number | default('') }}"
+
+    inc_in_progress_comment: |-
+      Automated remediation is in progress.
+
+      Advisory:      {{ advisory_id | default('n/a') }}
+      Failed hosts:  {{ failed_hosts | default('n/a') }}
+      Job ID:        {{ patch_my_job_id | default('n/a') }}
+
+      This incident will update again when remediation completes.
+
+    inc_success_comment: |-
+      Automated remediation completed successfully.
+
+      Advisory:       {{ advisory_id | default('n/a') }}
+      Patched hosts:  {{ patched_hosts | default('n/a') }}
+      Job ID:         {{ patch_my_job_id | default('n/a') }}
+
+      Resolving this incident.
+
+    inc_failure_comment: |-
+      Automated remediation did not complete.
+
+      Advisory:      {{ advisory_id | default('n/a') }}
+      Failed hosts:  {{ failed_hosts | default('n/a') }}
+      Job ID:        {{ patch_my_job_id | default('n/a') }}
+      Error:         {{ patch_my_error | default('see Ansible job output') }}
+
+    _comment_map:
+      in_progress: "{{ inc_in_progress_comment }}"
+      success: "{{ inc_success_comment }}"
+      failure: "{{ inc_failure_comment }}"
+
+    # ServiceNow incident states (OOB):
+    #   1 = New, 2 = In Progress, 6 = Resolved, 7 = Closed
+    _state_map:
+      in_progress: "2"
+      success: "6"
+      failure: "2"
+
+  tasks:
+    - name: Update the incident (only when an INC was created)
+      when:
+        - incident_number | string | length > 0
+      block:
+        - name: Resolve the incident sys_id by number
+          register: inc_lookup
+          servicenow.itsm.api_info:
+            resource: incident
+            sysparm_query: "numberSTARTSWITH{{ incident_number }}"
+
+        - name: Fail clearly if the incident was not found
+          ansible.builtin.assert:
+            that:
+              - inc_lookup.record | length > 0
+            fail_msg: "No incident matched number '{{ incident_number }}'."
+
+        - name: Patch the incident (state + work note)
+          servicenow.itsm.api:
+            action: patch
+            resource: incident
+            sys_id: "{{ inc_lookup.record[0].sys_id }}"
+            data:
+              state: "{{ _state_map[inc_outcome] }}"
+              work_notes: "{{ _comment_map[inc_outcome] }}"
+
+        - name: Show update result
+          ansible.builtin.debug:
+            msg: >-
+              Incident {{ incident_number }} updated —
+              outcome={{ inc_outcome }}, state={{ _state_map[inc_outcome] }}
+
+    - name: Note skip when no incident exists
+      when: incident_number | string | length == 0
+      ansible.builtin.debug:
+        msg: "No incident_number — skipping incident update."

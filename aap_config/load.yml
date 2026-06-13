@@ -22,6 +22,8 @@
   vars:
     cac_token_scope: write
   vars_files:
+    - files/gateway_settings.yml
+    - files/gateway_organizations.yml
     - files/eda_credentials.yml
     - files/eda_event_streams.yml
     - files/eda_projects.yml
@@ -35,15 +37,17 @@
     - files/controller_workflow_job_templates.yml
     - files/controller_schedules.yml
   tasks:
-    - name: Acquire AAP API token
-      ansible.builtin.include_tasks: tasks/aap_token_acquire.yml
+    - name: Apply CaC and clean up token
+      block:
+        - name: Acquire AAP API token
+          ansible.builtin.include_tasks: tasks/aap_token_acquire.yml
 
-    - name: Apply all AAP objects via dispatch
-      ansible.builtin.include_role:
-        name: infra.aap_configuration.dispatch
-      vars:
-        aap_configuration_secure_logging: false
+        - name: Apply all AAP objects via dispatch
+          ansible.builtin.include_role:
+            name: infra.aap_configuration.dispatch
+          vars:
+            aap_configuration_secure_logging: false
 
-  always:
-    - name: Release AAP API token
-      ansible.builtin.include_tasks: tasks/aap_token_release.yml
+      always:
+        - name: Release AAP API token
+          ansible.builtin.include_tasks: tasks/aap_token_release.yml
