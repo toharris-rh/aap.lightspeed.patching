@@ -34,6 +34,26 @@ controller_templates:
             - medium
             - large
 
+  # ── Teardown ─────────────────────────────────────────────────────────────
+  # Unregisters the host from the CDN + Insights, then terraform destroy +
+  # deregisters it from the inventory. Idempotent (no VM -> no-op). Driven by
+  # the nightly 6 PM / 10 PM schedules (controller_schedules.yml).
+  - name: "{{ jt_teardown }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/teardown_vm_aws.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_aws }}"            # AWS_* for terraform destroy
+      - "{{ cred_linux }}"          # SSH for the unregister play
+      - "{{ cred_controller }}"     # mint a token for inventory deregistration
+    extra_vars:
+      aws_region: "{{ aws_default_region }}"
+      aws_tf_state_bucket: "{{ aws_tf_state_bucket }}"
+      linux_ssh_public_key: "{{ linux_ssh_public_key }}"
+
   # ── Register RHEL ──────────────────────────────────────────────────────────
   - name: "{{ jt_register_rhel }}"
     job_type: run
