@@ -15,6 +15,7 @@ Load the relevant skill before working in its area:
 | Skill | Use when |
 |-------|----------|
 | [`.claude/skills/servicenow/SKILL.md`](.claude/skills/servicenow/SKILL.md) | ServiceNow / SNow, change requests, incidents, CMDB, work notes, the Insights→EDA→AAP→ServiceNow flow |
+| [`.claude/skills/environment/SKILL.md`](.claude/skills/environment/SKILL.md) | Environment setup, credentials, dev-environment.sh, auth testing, env-var flow |
 
 When you add a new skill, add a row here so future sessions discover it.
 
@@ -82,8 +83,8 @@ comparison and the current install state of the shared instance.
 
 ## Repo status (as of 2026-06-12)
 
-Early-stage: docs + ServiceNow callback playbooks + EDA rulebook/CaC files
-exist, but there is **no `aap_config/load.yml` CaC entrypoint** and **no
-`collections/requirements.yml`** yet. The README references an
-`ansible.cfg.example` that does not exist. Verify what's present before assuming
-a CaC apply path.
+Full CaC pipeline in place: `aap_config/load.yml` entrypoint,
+`aap_config/requirements.yml` for collections, controller + EDA object
+definitions under `aap_config/files/`, playbooks for patching / CVE remediation /
+VM provisioning / registration, and EDA rulebooks. ServiceNow callback playbooks
+and the native HCC→ServiceNow integration docs are also present.
