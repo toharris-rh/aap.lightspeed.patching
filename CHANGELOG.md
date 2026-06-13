@@ -7,6 +7,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed (2026-06-13)
 
+- **Terraform security-group description is ASCII-only** (#19 follow-up) — the
+  SG `GroupDescription` contained an em-dash; AWS rejects non-ASCII
+  (`InvalidParameterValue ... Character sets beyond ASCII are not supported`),
+  failing `terraform apply`. Replaced with a hyphen.
+
 - **Terraform AWS region passed to the provision apply** (#19 follow-up) — the
   AAP AWS credential injects access key/secret but no region, and `providers.tf`
   reads the region from `AWS_DEFAULT_REGION`, so `terraform apply` failed with
