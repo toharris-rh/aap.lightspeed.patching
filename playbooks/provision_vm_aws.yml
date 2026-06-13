@@ -76,6 +76,10 @@
               -var linux_admin_username={{ linux_admin_username | default('ec2-user') }}
             chdir: "{{ terraform_dir }}"
           environment:
+            # The AAP AWS credential injects AWS_ACCESS_KEY_ID/SECRET but NOT a
+            # region; providers.tf reads the region from AWS_DEFAULT_REGION, so
+            # set it here (defaults to us-east-1 — matches the S3 state bucket).
+            AWS_DEFAULT_REGION: "{{ aws_region }}"
             TF_VAR_linux_ssh_public_key: "{{ linux_ssh_public_key }}"
           no_log: true
           changed_when: true
