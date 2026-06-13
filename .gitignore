@@ -31,3 +31,6 @@ dev-environment.sh
 *~
 __pycache__/
 *.py[cod]
+
+# ansible-builder generated EE build context (derived artifact)
+context/
