@@ -132,7 +132,31 @@ Generate with: `openssl rand -hex 32`.
 any playbook in `aap_config/group_vars/all.yml`. They exist for future direct
 Insights API calls (e.g. triggering scans).
 
-### 7. Execution Environment
+### 7. Automation Analytics / Subscriptions
+
+| Env var | Purpose | Default |
+|---------|---------|---------|
+| `REDHAT_SUBSCRIPTIONS_CLIENT_ID` | console.redhat.com **service-account** client ID for Automation Analytics uploads | *(optional)* |
+| `REDHAT_SUBSCRIPTIONS_CLIENT_SECRET` | service-account client secret (write-only; AAP reads back `$encrypted$`) | *(optional)* |
+
+These feed the **Automation Calculator** (Analytics → Automation Calculator).
+`aap_config/files/controller_settings.yml` consumes them via
+`group_vars/all.yml` (`redhat_subscriptions_client_id` /
+`redhat_subscriptions_client_secret`) and sets `INSIGHTS_TRACKING_STATE: true`
+plus `SUBSCRIPTIONS_CLIENT_ID` / `SUBSCRIPTIONS_CLIENT_SECRET`. Without them the
+UI shows *"Missing Gather data for Automation Analytics."*
+
+These are a **service account** (client ID + secret from console.redhat.com →
+Service Accounts), NOT a portal username/password. Leave unset to skip analytics
+auth — `INSIGHTS_TRACKING_STATE` still flips on but uploads won't authenticate.
+Distinct from the Insights vars in group 6 (`INSIGHTS_CLIENT_ID`/`_SECRET`),
+which are a different, not-yet-consumed service account.
+
+**Operational**: enabling tracking is necessary but not sufficient — the
+calculator only shows data after an upload runs (default gather interval ~4h;
+force one from Settings → Subscription) AND job templates have actually run.
+
+### 8. Execution Environment
 
 | Env var | Purpose | Default |
 |---------|---------|---------|

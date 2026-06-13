@@ -24,6 +24,7 @@
   vars_files:
     - files/gateway_settings.yml
     - files/gateway_organizations.yml
+    - files/controller_settings.yml
     - files/eda_credentials.yml
     - files/eda_event_streams.yml
     - files/eda_projects.yml

@@ -1,0 +1,35 @@
+---
+# Consumed by the infra.aap_configuration.controller_settings role.
+# Platform-wide Controller settings. Adapted from the dc1.azure pattern:
+#   - secrets resolve from env vars at runtime (group_vars/all.yml), never committed
+#   - service-account auth only (client ID/secret), per Red Hat's current guidance
+#
+# PURPOSE — turn on Automation Analytics / Insights so the **Automation
+# Calculator** (ROI / planner on console.redhat.com) has data to chart. Without
+# this, the UI shows "Missing Gather data for Automation Analytics." AAP gathers
+# job-run telemetry and uploads it to console.redhat.com on a schedule;
+# authentication is via a Red Hat **service account** (client ID + secret), NOT
+# a portal username/password.
+#
+# NOTE — these are PLATFORM-WIDE settings (like gateway_settings.yml), not
+# `Lightspeed Patching -` namespaced objects. On a shared AAP there is a single
+# analytics identity; whichever repo loads last is authoritative.
+#
+# OPERATIONAL — enabling tracking is necessary but not sufficient for a live
+# demo: the calculator only shows data AFTER (1) at least one analytics upload
+# has run (default gather interval ~4h; force one from Settings → Subscription,
+# or via `awx-manage gather_analytics --ship`) and (2) some job templates have
+# actually run to generate telemetry.
+controller_settings:
+  settings:
+    # Master switch: gather analytics locally and ship to console.redhat.com.
+    INSIGHTS_TRACKING_STATE: true
+    # Service-account auth (client ID/secret). The legacy portal
+    # username/password fields are explicitly cleared so the service account is
+    # the single, unambiguous analytics identity (avoids precedence conflicts on
+    # a shared AAP). SUBSCRIPTIONS_CLIENT_SECRET is write-only — AAP returns
+    # $encrypted$ on read.
+    REDHAT_USERNAME: ""
+    REDHAT_PASSWORD: ""
+    SUBSCRIPTIONS_CLIENT_ID: "{{ redhat_subscriptions_client_id }}"
+    SUBSCRIPTIONS_CLIENT_SECRET: "{{ redhat_subscriptions_client_secret }}"
