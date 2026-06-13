@@ -3,13 +3,13 @@ eda_rulebook_activations:
   - name: "{{ eda_catalog_activation_name }}"
     description: "Listens for ServiceNow catalog orders and launches the provision workflow"
     project: "{{ eda_project_name }}"
-    rulebook: "rulebooks/servicenow_events.yml"
+    rulebook: "servicenow_events.yml"
     decision_environment: "{{ eda_decision_environment }}"
     organization: "{{ my_organization }}"
     event_streams:
       - event_stream: "{{ eda_event_stream_name }}"
         source_name: "__SOURCE_1"
-    credentials:
+    eda_credentials:
       - "{{ eda_controller_credential }}"
     extra_vars:
       my_organization: "{{ my_organization }}"
@@ -19,13 +19,13 @@ eda_rulebook_activations:
   - name: "{{ eda_incident_activation_name }}"
     description: "Listens for ServiceNow INC tickets from Red Hat Insights and launches remediation"
     project: "{{ eda_project_name }}"
-    rulebook: "rulebooks/servicenow_incident_events.yml"
+    rulebook: "servicenow_incident_events.yml"
     decision_environment: "{{ eda_decision_environment }}"
     organization: "{{ my_organization }}"
     event_streams:
       - event_stream: "{{ eda_event_stream_name }}"
         source_name: "__SOURCE_1"
-    credentials:
+    eda_credentials:
       - "{{ eda_controller_credential }}"
     extra_vars:
       my_organization: "{{ my_organization }}"

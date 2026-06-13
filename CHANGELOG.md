@@ -7,6 +7,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed (2026-06-12)
 
+- **EDA rulebook activations attach the Controller credential via `eda_credentials`**
+  (#12) — the activations used the key `credentials:`, which the
+  `infra.aap_configuration.eda_rulebook_activations` role does not read (it reads
+  `eda_credentials`). The RH AAP credential was silently dropped, so EDA rejected
+  both activations with *"The rulebook requires a RH AAP credential."* Renamed the
+  key to `eda_credentials:`, matching the working `dc1.azure` /
+  `aap.eda.dynatrace` reference repos.
+- **EDA rulebook activations now reference rulebooks by bare filename** — both
+  activations in `aap_config/files/eda_rulebook_activations.yml` used the
+  repo-relative path (`rulebooks/servicenow_events.yml`), which EDA rejected as
+  *"not found for project."* EDA indexes rulebooks from the project's
+  `rulebooks/` directory and references them by filename only, so the prefix was
+  dropped (`servicenow_events.yml`, `servicenow_incident_events.yml`). This was
+  the last remaining `load.yml` failure.
 - **Corrected the native ServiceNow integration to a single fixed user** — the
   "Flow Templates for Red Hat Insights" app authenticates every inbound Hybrid
   Cloud Console call as a hard-coded ServiceNow user `rh_insights_integration`
