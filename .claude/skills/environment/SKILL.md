@@ -161,7 +161,35 @@ force one from Settings → Subscription) AND job templates have actually run.
 | Env var | Purpose | Default |
 |---------|---------|---------|
 | `LIGHTSPEED_PATCHING_EE_VERSION` | EE image tag | `v1.0.0` |
-| `LIGHTSPEED_PATCHING_EE_IMAGE` | Full EE image URI (optional override) | built-in RHEL9 EE |
+| `LIGHTSPEED_PATCHING_EE_IMAGE` | Full EE image URI (optional override) | PAH copy (`<ah_hostname>/lightspeed_patching_ee:<ee_version>`) |
+
+## Container registry authentication (EE build & push)
+
+Building and publishing the custom EE (see `docs/execution-environment.md`) needs
+**podman logins**, NOT env vars. These are stored, persistent registry
+credentials — not in `dev-environment.sh`:
+
+- **`podman login`** writes to **`~/.config/containers/auth.json`** (a base64
+  basic-auth blob per registry). Once you log in, it persists across shells, so
+  the EE build/push "just works" without re-auth. This is why a fresh session can
+  already push: the logins were done earlier and cached here.
+- Registries needed:
+  - `registry.redhat.io` — pull the EE base image (your Red Hat login).
+  - `quay.io` — push the EE (the `zigfreed` account / a `zigfreed+...` robot token).
+- Check state without exposing secrets:
+  ```bash
+  podman login --get-login registry.redhat.io   # prints the username if logged in
+  podman login --get-login quay.io
+  python3 -c "import json;print(list(json.load(open('$HOME/.config/containers/auth.json'))['auths']))"
+  ```
+- **Guardrails:** `auth.json` holds base64 basic-auth — treat it like a password
+  file. Never `cat` it into chat, never commit it. It is outside the repo and
+  outside `dev-environment.sh` by design. If a registry says "unauthorized" mid
+  build, re-run the relevant `podman login` (interactive — suggest the user run
+  it with the `!` prefix).
+- The **EE build** also reads `~/.ansible.cfg` (the Automation Hub token) to pull
+  certified collections — see the **automation-hub** skill. That file must be a
+  real file, not a symlink (ansible-builder's COPY/ADD ignores symlinks).
 
 ## Token handling pattern
 

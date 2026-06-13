@@ -18,7 +18,12 @@ collections:
   - name: servicenow.itsm
     version: "2.15.1"
 
-  # ansible.platform — register the provisioned host/group in the AAP inventory
-  # (provision_vm_aws.yml uses ansible.platform.host / .group).
+  # ansible.platform — AAP platform-level objects.
   - name: ansible.platform
     version: "2.7.20260604"
+
+  # ansible.controller — register the provisioned host/group in the AAP inventory.
+  # ansible.platform has NO host/group module, so provision_vm_aws.yml uses
+  # ansible.controller.host / .group (matches the dc1.azure pattern).
+  - name: ansible.controller
+    version: "4.8.0"
