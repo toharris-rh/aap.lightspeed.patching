@@ -7,6 +7,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added (2026-06-13)
 
+- **CI lint gate** — `.github/workflows/lint.yml` runs `yamllint` +
+  `ansible-lint --offline` on PRs and pushes to `main`. `.ansible-lint` config
+  (basic profile; skips the intentional patching/CVE-demo patterns, no secrets).
+  Fixed the `name[template]` nit in `introduce_cve.yml` and the stale `.yamllint`
+  header. Both linters pass clean.
+- **First-time-user SSH note** in the environment skill — `~/.ssh/config`
+  host-pattern user mappings for manual SSH to provisioned hosts.
+
+### Added (2026-06-13)
+
 - **Nightly teardown** — `playbooks/teardown_vm_aws.yml` unregisters the host
   from the Red Hat CDN **and** Insights (`rhc` state absent), then `terraform
   destroy`s the VM and deregisters it from the AAP inventory. New

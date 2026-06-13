@@ -1,0 +1,33 @@
+---
+name: Lint
+# yamllint + ansible-lint gate on PRs and pushes to main. No secrets: ansible-lint
+# runs --offline (certified collections aren't installed; .ansible-lint mocks/skips
+# what can't resolve). See .yamllint and .ansible-lint for the rule config.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  yamllint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install yamllint
+      - run: yamllint .
+
+  ansible-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ansible-lint
+      - run: ansible-lint --offline

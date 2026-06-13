@@ -1,6 +1,6 @@
 ---
-# yamllint config for aap.eda.dynatrace.push (CI lint gate).
-# Codifies the standard the .github/workflows/ci.yml `yamllint .` step enforces.
+# yamllint config for aap.lightspeed.patching (CI lint gate).
+# Codifies the standard the .github/workflows/lint.yml `yamllint .` step enforces.
 extends: default
 
 ignore: |

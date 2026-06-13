@@ -41,7 +41,7 @@
           - demo_downrev_version | length > 0
         fail_msg: "Set demo_package and demo_downrev_version before running this playbook."
 
-    - name: Downgrade {{ demo_package }} to {{ demo_downrev_version }}
+    - name: "Downgrade the demo package to its pinned downrev: {{ demo_package ~ '-' ~ demo_downrev_version }}"
       ansible.builtin.dnf:
         name: "{{ demo_package }}-{{ demo_downrev_version }}"
         state: present
