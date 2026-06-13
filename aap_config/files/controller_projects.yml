@@ -5,6 +5,10 @@ controller_projects:
     scm_type: git
     scm_url: "https://github.com/toharris-rh/aap.lightspeed.patching.git"
     scm_branch: main
-    scm_update_on_launch: false
+    # DEV-TIME: auto-sync the project on each launch so playbook changes merged to
+    # main take effect without a manual sync. Revisit before production — with this
+    # on, every workflow node triggers a project sync (dc1.azure disabled it for
+    # that reason, AB#74). Fine while actively developing the provisioning flow.
+    scm_update_on_launch: true
     scm_clean: true
     default_environment: "{{ my_execution_environment }}"

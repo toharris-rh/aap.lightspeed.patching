@@ -97,11 +97,35 @@ Do **not** commit the token. Either:
 In the EE `requirements.yml`, pin each certified collection and (optionally) set
 `source:` to the certified hub so it isn't fetched from community Galaxy.
 
+## Publishing EE images to quay.io (then PAH syncs from quay)
+
+The EE is pushed to `quay.io/zigfreed/lightspeed-patching-ee`, then Private
+Automation Hub syncs it. Gotchas learned the hard way:
+
+- **quay robot tokens can authenticate but not create/push to a new repo.** A
+  `zigfreed+<name>_cli` robot logs in fine yet `podman push` fails with
+  `authentication required` when the repo doesn't exist — robots can't
+  auto-create repos. Fix: push as the **user account** (`podman login -u zigfreed
+  quay.io`), which creates the repo on first push; or pre-create the repo in the
+  quay UI and grant the robot **Write**.
+- **podman reads `~/.docker/config.json` too.** A stale cred set via an old
+  `docker login` lives there and shadows your intent; `podman logout` punts to
+  `docker logout`. If docker isn't installed, clear the `quay.io` entry from both
+  `~/.config/containers/auth.json` and `~/.docker/config.json` directly (JSON
+  edit — never print the token), then `podman login -u zigfreed quay.io`.
+- **The `!` Claude prompt has no TTY** — `podman login` (hidden password prompt)
+  fails there with `inappropriate ioctl for device`. Run interactive logins in a
+  real terminal, or use `--password-stdin`. Never type a password as a chat
+  message (it lands in the transcript — rotate it if that happens).
+- **Make the quay repo public** so PAH can sync it without registry creds
+  (matches `hub_ee_registries.yml`, which carries no credentials).
+
 ## Private Automation Hub (PAH)
 
 PAH is a separate, self-hosted hub (its hostname is `AH_HOSTNAME` /
-`ah_hostname`). It also serves a **container registry** used to host EE images
-that AAP pulls. Push images with `podman push <PAH-host>/<image>:<tag>` after
-`podman login <PAH-host>`, and give AAP a **Container Registry** credential
-pointing at the PAH host so it can pull the EE. See the **aap-config** skill for
-wiring the EE object, and the **environment** skill for the credential env vars.
+`ah_hostname`; on the AAP 2.5/2.6 unified platform it's the same host as AAP). It
+serves a **container registry** that AAP pulls EE images from. The CaC
+(`hub_ee_registries.yml` + `hub_ee_repositories.yml`) makes PAH **sync** the
+image from quay; a **Container Registry** credential (`cred_hub_registry`) lets
+Controller pull it. See the **aap-config** skill for wiring the EE object, and
+the **environment** skill for `auth.json` / registry-login details.

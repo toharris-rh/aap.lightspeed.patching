@@ -24,6 +24,7 @@ on every bump:
 | `redhat.rhel_system_roles` | `1.120.5` (certified) |
 | `servicenow.itsm` | `2.15.1` (certified) |
 | `ansible.platform` | `2.7.20260604` (certified) |
+| `ansible.controller` | `4.8.0` (certified) — inventory host/group registration |
 
 Certified (Automation Hub) collections are preferred over community Galaxy. The
 build applies OS errata (`microdnf upgrade`) to the base layer for security
@@ -57,8 +58,15 @@ podman login registry.redhat.io        # base image pull (interactive)
 
 ```bash
 ansible-builder build -f execution-environment.yml \
-  -t lightspeed-patching-ee:latest --prune-images
+  -t lightspeed-patching-ee:latest --prune-images \
+  --build-arg PYCMD=/usr/bin/python3.11
 ```
+
+> **Why `--build-arg PYCMD=/usr/bin/python3.11` is required:** `redhat.rhel_system_roles`
+> declares a `dnf` system requirement, and installing `dnf` pulls in the Python 3.9
+> RPM, which repoints `/usr/bin/python3` → 3.9 (no pip). ansible-builder's
+> `assemble` step then fails with `No module named pip`. Pinning `PYCMD` to
+> `python3.11` keeps the build on the interpreter that has pip.
 
 ## 2. Publish to quay.io (deliberate-update model)
 

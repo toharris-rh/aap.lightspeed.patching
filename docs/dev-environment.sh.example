@@ -84,7 +84,9 @@ export REDHAT_SUBSCRIPTIONS_CLIENT_SECRET=""
 
 # ============================================================================
 # AAP EE (Execution Environment)
-# Defaults to the built-in EE; override if you build a custom EE.
+# The EE version pin lives in aap_config/group_vars/all.yml (ee_version default);
+# the image defaults to the Private Automation Hub copy at that tag. Override
+# below only for a one-off (e.g. a Hub-less smoke test against public quay.io).
 # ============================================================================
-export LIGHTSPEED_PATCHING_EE_VERSION="v1.0.0"
-# export LIGHTSPEED_PATCHING_EE_IMAGE="quay.io/your-org/lightspeed-patching-ee:latest"
+# export LIGHTSPEED_PATCHING_EE_VERSION="v1.1.0"
+# export LIGHTSPEED_PATCHING_EE_IMAGE="quay.io/zigfreed/lightspeed-patching-ee:latest"

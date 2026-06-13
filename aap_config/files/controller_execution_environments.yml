@@ -35,4 +35,5 @@ controller_execution_environments:
     description: >-
       Lightspeed Patching EE {{ ee_version }} (base ee-minimal-rhel9:2.17.14) —
       Terraform 1.15.6 · amazon.aws 11.3.0 · redhat.rhel_system_roles 1.120.5 ·
-      servicenow.itsm 2.15.1 · ansible.platform 2.7.20260604
+      servicenow.itsm 2.15.1 · ansible.platform 2.7.20260604 ·
+      ansible.controller 4.8.0

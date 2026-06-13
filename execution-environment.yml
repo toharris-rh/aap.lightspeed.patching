@@ -8,7 +8,13 @@
 #
 # BUILD (local):
 #   ansible-builder build -f execution-environment.yml \
-#                         -t lightspeed-patching-ee:latest --prune-images
+#                         -t lightspeed-patching-ee:latest --prune-images \
+#                         --build-arg PYCMD=/usr/bin/python3.11
+#   The PYCMD build-arg is REQUIRED: a collection (redhat.rhel_system_roles)
+#   declares a `dnf` bindep, and installing dnf drags in the Python 3.9 RPM which
+#   repoints /usr/bin/python3 -> 3.9 (no pip), breaking ansible-builder's assemble
+#   ("No module named pip"). Pinning PYCMD to python3.11 keeps the build on the
+#   interpreter that has pip. (ARG values reach the assemble script via the RUN env.)
 #
 # PREREQUISITES:
 #   - ansible-builder installed:  pip install ansible-builder
@@ -33,11 +39,15 @@
 #
 # BUILD PROVENANCE — record every notable change here so the next person knows
 # WHAT is in the image and WHY. Collections come from collections/requirements.yml.
-#   2026-06-12 (initial) — base ee-minimal-rhel9:2.17.14 + Terraform on PATH so the
+#   2026-06-12 (v1.0.0) — base ee-minimal-rhel9:2.17.14 + Terraform on PATH so the
 #     Provision VM JT can shell out to `terraform`; certified collections
 #     amazon.aws / redhat.rhel_system_roles / servicenow.itsm / ansible.platform.
 #     python3.11-devel + wheel in the builder stage to compile systemd-python
 #     (transitive dep: ansible.platform -> ansible.eda).
+#   2026-06-13 (v1.1.0) — added ansible.controller 4.8.0 (+collection -> minor bump).
+#     ansible.platform has NO host/group module; provision_vm_aws.yml registers the
+#     new host/group in the AAP inventory via ansible.controller.host / .group, so
+#     the EE must carry ansible.controller. (v1.0.0 failed at runtime without it.)
 # ============================================================
 
 version: 3

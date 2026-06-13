@@ -5,6 +5,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (2026-06-13)
+
+- **Provision VM registers the host via `ansible.controller`** (#19) — `provision_vm_aws.yml`
+  used `ansible.platform.host` / `.group`, but `ansible.platform` has **no**
+  host/group module, so the job failed with *"couldn't resolve module/action
+  'ansible.platform.group'."* Switched to `ansible.controller.host` / `.group`
+  (with `controller_host` / `controller_oauthtoken`), matching the dc1.azure
+  pattern, and added **`ansible.controller` 4.8.0** to the EE.
+
+### Changed (2026-06-13)
+
+- **Controller project `scm_update_on_launch: true`** (dev-time) — so playbook
+  changes merged to `main` take effect on the next job launch without a manual
+  project sync. Revisit before production (every workflow node re-syncs).
+- **EE bumped to v1.1.0** — added `ansible.controller` 4.8.0 (+collection → minor
+  bump per the deliberate-update model). Manifest description and
+  `docs/execution-environment.md` updated; `ee_version` default is now the single
+  source of truth in `group_vars` (the dev-environment EE-version export is
+  commented out). EE build requires `--build-arg PYCMD=/usr/bin/python3.11`
+  (a `dnf` bindep pulls Python 3.9, shadowing pip otherwise).
+
 ### Added (2026-06-12)
 
 - **Custom terraform-enabled Execution Environment** (#19) — provisioning from

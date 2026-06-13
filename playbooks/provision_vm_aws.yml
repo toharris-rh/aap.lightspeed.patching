@@ -109,9 +109,9 @@
               ansible.builtin.include_tasks: "{{ playbook_dir }}/../aap_config/tasks/aap_token_acquire.yml"
 
             - name: Ensure the linux group exists
-              ansible.platform.group:
-                aap_hostname: "{{ aap_hostname }}"
-                aap_token: "{{ aap_token }}"
+              ansible.controller.group:
+                controller_host: "{{ aap_hostname }}"
+                controller_oauthtoken: "{{ aap_token }}"
                 validate_certs: "{{ aap_validate_certs }}"
                 name: "{{ lsp_linux_group }}"
                 inventory: "{{ lsp_inventory }}"
@@ -121,9 +121,9 @@
                   ansible_port: 22
 
             - name: Add the EC2 instance as a host
-              ansible.platform.host:
-                aap_hostname: "{{ aap_hostname }}"
-                aap_token: "{{ aap_token }}"
+              ansible.controller.host:
+                controller_host: "{{ aap_hostname }}"
+                controller_oauthtoken: "{{ aap_token }}"
                 validate_certs: "{{ aap_validate_certs }}"
                 name: "{{ linux_inventory.host }}"
                 inventory: "{{ lsp_inventory }}"
@@ -136,9 +136,9 @@
                   vm_size_chosen: "{{ linux_inventory.vm_size_chosen }}"
 
             - name: Associate host with the linux group
-              ansible.platform.group:
-                aap_hostname: "{{ aap_hostname }}"
-                aap_token: "{{ aap_token }}"
+              ansible.controller.group:
+                controller_host: "{{ aap_hostname }}"
+                controller_oauthtoken: "{{ aap_token }}"
                 validate_certs: "{{ aap_validate_certs }}"
                 name: "{{ lsp_linux_group }}"
                 inventory: "{{ lsp_inventory }}"
