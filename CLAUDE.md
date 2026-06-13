@@ -19,6 +19,7 @@ Load the relevant skill before working in its area:
 | [`.claude/skills/repo-workflow/SKILL.md`](.claude/skills/repo-workflow/SKILL.md) | Git/GitHub procedures — commit, push, open a PR, merge; `main` is protected so everything goes through a PR |
 | [`.claude/skills/aap-config/SKILL.md`](.claude/skills/aap-config/SKILL.md) | CaC pipeline — `load.yml`, `aap_config/files/` objects, the dispatch role, and EDA wiring gotchas (rulebook activations, event streams, RH AAP credential) |
 | [`.claude/skills/automation-hub/SKILL.md`](.claude/skills/automation-hub/SKILL.md) | Red Hat Automation Hub — certified vs community collections, resolving certified versions via the Hub API, EE builds pulling certified content, Private Automation Hub |
+| [`.claude/skills/execution-environment/SKILL.md`](.claude/skills/execution-environment/SKILL.md) | Build / version / update the custom EE (terraform + certified collections) and ship it quay→PAH→Controller; build gotchas and the immutable-semver update model |
 
 When you add a new skill, add a row here so future sessions discover it.
 
