@@ -1,0 +1,26 @@
+---
+# ansible-lint config for the CI lint gate (.github/workflows/lint.yml).
+# Runs offline (no Automation Hub token in CI); certified collections are not
+# installed, so syntax-only checks apply.
+profile: basic
+
+exclude_paths:
+  - collections/ansible_collections/   # vendored collections, if any
+  - context/                            # ansible-builder generated EE context
+  - .github/
+
+skip_list:
+  # Patching intentionally brings packages to the latest version.
+  - package-latest
+  # The CVE-demo setup deliberately shells out to rpm for a precise downgrade.
+  - command-instead-of-module
+  # The patch/remediate plays use changed_when + a follow-up task by design;
+  # converting to handlers would break the linear demo narrative.
+  - no-handler
+
+# The servicenow.itsm.* modules read the instance host/user/pass from the
+# SN_* env vars injected by the "Lightspeed Patching - ServiceNow" credential,
+# so ansible-lint's offline arg-spec check can't see `instance`. Treated as a
+# warning by ansible-lint; listed here for clarity.
+warn_list:
+  - args[module]

@@ -94,6 +94,25 @@ These are read by `cat` at source time — the key file must exist at the path
 in `dev-environment.sh`. The private key is injected into the AAP Machine
 credential `Lightspeed Patching - Linux Machine`.
 
+**First-time users — manual SSH to provisioned hosts.** AAP connects via the
+Machine credential, but to SSH *by hand* (debugging/demo), add host-pattern user
+mappings to `~/.ssh/config` so `ssh <fqdn>` picks the right key + user
+automatically (provisioned EC2 hosts are `*.compute-1.amazonaws.com` → `ec2-user`):
+
+```sshconfig
+Host *
+    IdentityFile ~/.ssh/id_rsa
+Host *.compute-1.amazonaws.com
+    User ec2-user
+Host ubuntu.*.opentlc.com
+    User ubuntu
+Host *.cloudapp.azure.com
+    User azureuser
+```
+
+This is laptop-side convenience only — not used by AAP and not committed (it's
+`~/.ssh/config`).
+
 ### 4. Red Hat CDN
 
 | Env var | Purpose | Default |
