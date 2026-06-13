@@ -16,11 +16,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed (2026-06-13)
 
-- **rhc registration `organization_id` nesting** (#19 follow-up) — the
-  `redhat.rhel_system_roles.rhc` role reads `organization_id` under
-  `rhc_auth.activation_keys`, not at the `rhc_auth` top level; misplaced it
-  failed with *"org_id is required when using activationkey"*. Moved it under
-  `activation_keys` in `register_rhel.yml`.
+- **rhc registration org id is the top-level `rhc_organization` var** (#19
+  follow-up) — the `redhat.rhel_system_roles.rhc` role's subscription-manager
+  task uses `org_id: "{{ rhc_organization }}"`; it does NOT read the org from
+  `rhc_auth` (top level or under `activation_keys`). Both of those gave
+  *"org_id is required when using activationkey"*. Set `rhc_organization` in
+  `register_rhel.yml`.
 
 - **Provision inventory registration uses `aap_token`** (#19 follow-up) —
   `ansible.controller` 4.8.0 does not accept `controller_oauthtoken` (dc1's
