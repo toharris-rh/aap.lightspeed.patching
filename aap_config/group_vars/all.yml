@@ -93,6 +93,11 @@ eda_decision_environment: "{{ lookup('ansible.builtin.env', 'LIGHTSPEED_EDA_DE')
 # exact string. Must equal the catalog item's Short description verbatim.
 my_snow_catalog_short_description: "Lightspeed Patching - Request RHEL VM"
 
+# ServiceNow CMDB Business Application that provisioned hosts are related to
+# (cmdb_ci_business_app). register_cmdb_and_relate.yml creates it if missing.
+# Dedicated to this demo — distinct from the shared "Ansible Demonstrations" app.
+cmdb_business_app: "Lightspeed Patching Demo"
+
 # --- AAP object names (namespace: "Lightspeed Patching -") -------------------
 project_name: "Lightspeed Patching"
 inventory_name: "lightspeed-patching"

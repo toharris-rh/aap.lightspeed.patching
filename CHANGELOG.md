@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-06-13)
+
+- **`playbooks/servicenow/register_cmdb_and_relate.yml`** — registers a host in
+  the CMDB (`cmdb_ci_linux_server`, create-if-missing) and relates it to the
+  **"Lightspeed Patching Demo"** Business Application (`cmdb_ci_business_app`,
+  created if absent) via `cmdb_rel_ci` "Uses::Used by". Idempotent. New
+  `cmdb_business_app` group var. Dedicated Business App for this demo, distinct
+  from the shared "Ansible Demonstrations".
+
 ### Fixed (2026-06-13)
 
 - **Provision inventory registration uses `aap_token`** (#19 follow-up) —
