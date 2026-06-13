@@ -81,16 +81,41 @@ nothing is lost.
 ## Merging
 
 Merges complete on GitHub. Past PRs use **merge commits** (`Merge pull request
-#N from toharris-rh/<branch>`), so keep that style:
+#N from toharris-rh/<branch>`), so keep that style. **Always delete the branch
+on merge** with `--delete-branch` — it removes the remote branch and prunes the
+local one in the same step, so merged branches don't pile up:
 
 ```bash
-gh pr merge <N> --repo toharris-rh/aap.lightspeed.patching --merge
+gh pr merge <N> --repo toharris-rh/aap.lightspeed.patching --merge --delete-branch
+```
+
+Then sync local `main`:
+
+```bash
+git checkout main && git pull --ff-only origin main
 ```
 
 Only merge when the user asks, or when a fix is verified. After a merge that
 touches CaC, the EDA project in AAP syncs rulebooks from `main` — so merge
 before relying on a rulebook change being live (the activation *definitions* in
 `aap_config/files/` are read locally and don't need a merge to test).
+
+## Branch cleanup
+
+Delete every branch as soon as its PR merges (use `--delete-branch` above). To
+sweep up stale merged branches that slipped through:
+
+```bash
+git fetch --prune origin                              # drop local refs to deleted remotes
+git branch --merged origin/main | grep -v ' main$'    # local branches safe to delete
+git branch -r --merged origin/main | grep -v 'origin/main$'  # remote branches safe to delete
+# delete remote:  git push origin --delete <branch>
+# delete local:   git branch -d <branch>
+```
+
+Never delete a branch whose PR is still open (e.g. the one you're working on).
+After a clean repo, only `main` plus any in-flight feature branches should
+remain.
 
 ## Non-negotiables (also in CLAUDE.md)
 
