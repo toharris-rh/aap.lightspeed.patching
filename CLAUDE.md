@@ -16,6 +16,8 @@ Load the relevant skill before working in its area:
 |-------|----------|
 | [`.claude/skills/servicenow/SKILL.md`](.claude/skills/servicenow/SKILL.md) | ServiceNow / SNow, change requests, incidents, CMDB, work notes, the Insights→EDA→AAP→ServiceNow flow |
 | [`.claude/skills/environment/SKILL.md`](.claude/skills/environment/SKILL.md) | Environment setup, credentials, dev-environment.sh, auth testing, env-var flow |
+| [`.claude/skills/repo-workflow/SKILL.md`](.claude/skills/repo-workflow/SKILL.md) | Git/GitHub procedures — commit, push, open a PR, merge; `main` is protected so everything goes through a PR |
+| [`.claude/skills/aap-config/SKILL.md`](.claude/skills/aap-config/SKILL.md) | CaC pipeline — `load.yml`, `aap_config/files/` objects, the dispatch role, and EDA wiring gotchas (rulebook activations, event streams, RH AAP credential) |
 
 When you add a new skill, add a row here so future sessions discover it.
 
