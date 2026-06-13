@@ -35,7 +35,10 @@
           activation_keys:
             keys:
               - "{{ rh_activation_key }}"
-          organization_id: "{{ rh_org_id }}"
+            # organization_id belongs UNDER activation_keys (the rhc role reads
+            # it there); at the rhc_auth top level it's ignored -> "org_id is
+            # required when using activationkey".
+            organization_id: "{{ rh_org_id }}"
         rhc_auto_attach: true
 
     - name: Log registration to ServiceNow
