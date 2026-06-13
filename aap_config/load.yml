@@ -31,6 +31,8 @@
     - files/eda_rulebook_activations.yml
     - files/controller_credential_types.yml
     - files/controller_credentials.yml
+    - files/hub_ee_registries.yml
+    - files/hub_ee_repositories.yml
     - files/controller_projects.yml
     - files/controller_inventories.yml
     - files/controller_execution_environments.yml

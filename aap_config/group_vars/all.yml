@@ -22,8 +22,24 @@ ah_hostname: "{{ lookup('ansible.builtin.env', 'AH_HOSTNAME') | default(aap_host
 
 ee_name: "Lightspeed Patching - EE"
 ee_version: "{{ lookup('ansible.builtin.env', 'LIGHTSPEED_PATCHING_EE_VERSION') | default('v1.0.0', true) }}"
-ee_image: "{{ lookup('ansible.builtin.env', 'LIGHTSPEED_PATCHING_EE_IMAGE') | default('registry.redhat.io/ansible-automation-platform/ee-supported-rhel9:latest', true) }}"
+# Default: the Private Automation Hub copy at the pinned IMMUTABLE semver tag.
+# PAH syncs it from quay.io (hub_ee_registries.yml / hub_ee_repositories.yml) and
+# Controller pulls it from PAH via cred_hub_registry — the image never leaves the
+# platform at job-run time. The Hub image name is the hub_ee_repositories[].name
+# (lightspeed_patching_ee). Override with the public quay.io image only for a
+# Hub-less smoke test:
+#   export LIGHTSPEED_PATCHING_EE_IMAGE=quay.io/zigfreed/lightspeed-patching-ee:latest
+ee_image: "{{ lookup('ansible.builtin.env', 'LIGHTSPEED_PATCHING_EE_IMAGE') | default(ah_hostname ~ '/lightspeed_patching_ee:' ~ ee_version, true) }}"
 my_execution_environment: "{{ ee_name }}"
+
+# --- Private Automation Hub registry (EE pull) -------------------------------
+# Container Registry credential Controller uses to pull the EE from PAH. On the
+# AAP 2.5/2.6 unified platform the Hub registry authenticates with the platform
+# admin credentials, so it reuses the controller username/password.
+cred_hub_registry: "Lightspeed Patching - Hub Registry"
+hub_registry_host: "{{ ah_hostname }}"
+hub_registry_username: "{{ controller_cred_username }}"
+hub_registry_password: "{{ controller_cred_password }}"
 
 controller_cred_host: "{{ aap_hostname }}"
 controller_cred_username: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_USERNAME') | default('admin', true) }}"

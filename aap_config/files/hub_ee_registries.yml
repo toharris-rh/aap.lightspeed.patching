@@ -1,0 +1,13 @@
+---
+# Consumed by three dispatch roles (in order, all auto-fired by this var being
+# defined): hub_ee_registry -> hub_ee_registry_index -> hub_ee_registry_sync.
+#
+# Purpose: tell Private Automation Hub where to find the Lightspeed Patching EE
+# image so Hub can sync it locally. The image itself
+# (quay.io/zigfreed/lightspeed-patching-ee) is defined in hub_ee_repositories.yml.
+hub_ee_registries:
+  - name: quay_io          # alphanumeric + underscores only (Hub name requirement)
+    url: https://quay.io
+    tls_validation: true
+    # No credentials needed — the lightspeed-patching-ee image is public on
+    # quay.io. Add username/password here if the image moves to a private org.

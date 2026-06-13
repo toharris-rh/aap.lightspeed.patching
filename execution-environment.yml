@@ -1,0 +1,87 @@
+---
+# aap.lightspeed.patching Execution Environment
+# ============================================================
+# Adds Terraform to the Red Hat minimal RHEL9 EE base so the Provision VM job
+# template can call `terraform` directly, plus the certified collections the
+# runtime playbooks need (amazon.aws, redhat.rhel_system_roles, servicenow.itsm,
+# ansible.platform). Adapted from the proven dc1.azure EE pattern.
+#
+# BUILD (local):
+#   ansible-builder build -f execution-environment.yml \
+#                         -t lightspeed-patching-ee:latest --prune-images
+#
+# PREREQUISITES:
+#   - ansible-builder installed:  pip install ansible-builder
+#   - Logged in to Red Hat registry: podman login registry.redhat.io
+#   - ~/.ansible.cfg with Automation Hub offline token (see ansible.cfg.example).
+#     Must be a REAL file, not a symlink — ansible-builder's COPY/ADD does not
+#     follow symlinks.
+#
+# PUSH (deliberate-update model — see docs/execution-environment.md):
+#   Tag the NEXT immutable semver tag AND move latest, then push both:
+#     podman tag lightspeed-patching-ee:latest quay.io/zigfreed/lightspeed-patching-ee:vX.Y.Z
+#     podman tag lightspeed-patching-ee:latest quay.io/zigfreed/lightspeed-patching-ee:latest
+#     podman push quay.io/zigfreed/lightspeed-patching-ee:vX.Y.Z
+#     podman push quay.io/zigfreed/lightspeed-patching-ee:latest
+#   Bump rule: CVE-only rebuild -> patch · +collection -> minor · new base -> major.
+#   Then bump `ee_version` in aap_config/group_vars/all.yml and re-apply load.yml;
+#   PAH re-syncs the new tag and Controller pulls it once (pull: missing).
+#
+# TERRAFORM VERSION: pinned to 1.15.6 (latest as of 2026-06).
+#   Verify newer releases at https://releases.hashicorp.com/terraform/ and bump
+#   the version string in the RUN line below.
+#
+# BUILD PROVENANCE — record every notable change here so the next person knows
+# WHAT is in the image and WHY. Collections come from collections/requirements.yml.
+#   2026-06-12 (initial) — base ee-minimal-rhel9:2.17.14 + Terraform on PATH so the
+#     Provision VM JT can shell out to `terraform`; certified collections
+#     amazon.aws / redhat.rhel_system_roles / servicenow.itsm / ansible.platform.
+#     python3.11-devel + wheel in the builder stage to compile systemd-python
+#     (transitive dep: ansible.platform -> ansible.eda).
+# ============================================================
+
+version: 3
+
+images:
+  base_image:
+    name: registry.redhat.io/ansible-automation-platform/ee-minimal-rhel9:2.17.14
+
+dependencies:
+  galaxy: collections/requirements.yml
+
+options:
+  package_manager_path: /usr/bin/microdnf
+
+# Injects your local ~/.ansible.cfg so ansible-galaxy can authenticate to
+# Automation Hub and pull Red Hat certified content during the build. Evaluated
+# at build time only; never committed. See ansible.cfg.example for the format.
+additional_build_files:
+  - src: /home/eames/.ansible.cfg
+    dest: configs
+
+additional_build_steps:
+  prepend_base:
+    # Apply available OS errata to the base layer first (security hygiene — the
+    # base image is a point-in-time build; errata published since are not in it).
+    - RUN microdnf upgrade -y --nodocs --setopt=install_weak_deps=0 && microdnf clean all
+    - RUN mkdir -p /etc/ansible/
+    # unzip is needed to extract the Terraform archive.
+    - RUN microdnf install -y unzip --nodocs --setopt=install_weak_deps=0
+    # Download + install Terraform. SINGLE-LINE RUN on purpose: ansible-builder
+    # flattens multiline YAML to one line, turning `\` continuations into
+    # backslash-space which bash mis-parses. To upgrade, bump the version below.
+    - RUN curl -fsSL https://releases.hashicorp.com/terraform/1.15.6/terraform_1.15.6_linux_amd64.zip -o terraform.zip && unzip terraform.zip && mv terraform /usr/local/bin/ && rm terraform.zip
+    - RUN terraform --version
+
+  prepend_builder:
+    # python3.11-devel provides Python.h to compile systemd-python (transitive dep
+    # of ansible.platform -> ansible.eda). Must be python3.11-devel (NOT
+    # python3-devel, which installs Python 3.9 and breaks the build). 'wheel' lets
+    # pip build a proper .whl so the final stage doesn't recompile from source.
+    - RUN microdnf install -y python3.11-devel --nodocs --setopt=install_weak_deps=0
+    - RUN /usr/bin/python3 -m pip install wheel
+
+  prepend_galaxy:
+    # Make the Automation Hub cfg available to ansible-galaxy during install. The
+    # leading dot is preserved — the file lands at _build/configs/.ansible.cfg.
+    - ADD _build/configs/.ansible.cfg /etc/ansible/ansible.cfg

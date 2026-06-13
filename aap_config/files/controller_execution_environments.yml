@@ -1,6 +1,38 @@
 ---
+# Consumed by infra.aap_configuration.controller_execution_environments.
+# Registers the Lightspeed Patching EE in Controller so the job templates can
+# reference it by name.
+#
+# Image source (set LIGHTSPEED_PATCHING_EE_IMAGE to override):
+#   Default: {{ ah_hostname }}/lightspeed_patching_ee:{{ ee_version }}  ← the
+#   Private Automation Hub copy at the pinned IMMUTABLE semver tag. PAH syncs it
+#   from quay.io (hub_ee_registries.yml + hub_ee_repositories.yml), and the
+#   cred_hub_registry credential lets Controller authenticate to the internal Hub
+#   registry to pull it.
+#
+# "pull: missing" (deliberate-update model): pull the image once, then reuse the
+# cached layer on every run. SAFE because the tag is immutable — a given vX.Y.Z
+# never changes. Shipping an update is deliberate: build a new vX.Y.Z -> push ->
+# re-sync PAH -> bump ee_version -> re-apply load.yml (the new tag isn't present
+# locally, so "missing" pulls it exactly once). See docs/execution-environment.md.
+#   For a Hub-less smoke test, override LIGHTSPEED_PATCHING_EE_IMAGE with the
+#   public quay.io URL (quay.io/zigfreed/lightspeed-patching-ee:latest) — no
+#   registry credential needed.
+#
+# dispatch ordering: hub_ee_registry -> hub_ee_repository (sync) ->
+# controller_credentials -> this role. By the time this runs, the image is in Hub
+# and the pull credential exists.
 controller_execution_environments:
   - name: "{{ ee_name }}"
     image: "{{ ee_image }}"
     pull: missing
     organization: "{{ my_organization }}"
+    credential: "{{ cred_hub_registry }}"
+    # EE DESCRIPTION CONVENTION: enumerate the version-pinned contents — base
+    # image · binaries · key collections — so the description IS a manifest of
+    # what's inside. KEEP IN SYNC on every EE bump with the base image in
+    # execution-environment.yml and the pins in collections/requirements.yml.
+    description: >-
+      Lightspeed Patching EE {{ ee_version }} (base ee-minimal-rhel9:2.17.14) —
+      Terraform 1.15.6 · amazon.aws 11.3.0 · redhat.rhel_system_roles 1.120.5 ·
+      servicenow.itsm 2.15.1 · ansible.platform 2.7.20260604

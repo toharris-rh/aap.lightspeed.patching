@@ -1,0 +1,40 @@
+---
+# Creates a Hub EE repository (lightspeed_patching_ee) that mirrors the EE image
+# from quay.io, then syncs it so the image lives in Private Automation Hub by the
+# time controller_execution_environments.yml registers it in Controller.
+#
+# Two dispatch roles, and the sync only runs if BOTH gates are satisfied
+# (learned the hard way in dc1.azure):
+#   1. hub_ee_repository      — creates/updates the repo (loops hub_ee_repositories).
+#   2. hub_ee_repository_sync — syncs it, but ONLY when:
+#        a) DISPATCH GATE: a variable named `hub_ee_repository_sync` is *defined*
+#           (dispatch includes the role on `when: vars[__role.var] is defined`).
+#           That flag's only job is to exist — the role ignores its value.
+#        b) ROLE GATE: the item's `sync` sub-option is true.
+#      => `sync: true` / `wait: true` MUST live on the hub_ee_repositories item
+#         AND `hub_ee_repository_sync` MUST be defined. Both, or no sync happens.
+#
+# The `quay_io` remote registry (hub_ee_registries.yml) is created first by
+# dispatch ordering. After sync the image is served at
+# <ah_hostname>/lightspeed_patching_ee:<ee_version> — the default ee_image
+# (group_vars/all.yml) that Controller pulls via the cred_hub_registry credential.
+hub_ee_repositories:
+  - name: lightspeed_patching_ee   # alphanumeric + underscores; becomes the Hub image name
+    description: "Lightspeed Patching EE — Terraform + amazon.aws + redhat.rhel_system_roles + servicenow.itsm + ansible.platform"
+    registry: quay_io              # must match hub_ee_registries[].name
+    upstream_name: zigfreed/lightspeed-patching-ee
+    # Mirror the pinned IMMUTABLE version tag (ee_version) into Hub — the tag
+    # Controller pins to with pull: missing. `latest` is also synced as a Hub-side
+    # smoke-test convenience; Controller never references it. Templating off
+    # ee_version means a version bump auto-includes the new tag here.
+    include_tags:
+      - latest
+      - "{{ ee_version }}"
+    sync: true        # ROLE GATE (2b)
+    wait: true        # block until sync completes before the EE is registered
+
+# DISPATCH GATE (2a): this flag's only job is to be *defined* so dispatch includes
+# the hub_ee_repository_sync role. The role ignores its value and reads sync/wait
+# off hub_ee_repositories above. Do not remove it — without it the sync is skipped
+# and the Hub repo stays empty.
+hub_ee_repository_sync: true
