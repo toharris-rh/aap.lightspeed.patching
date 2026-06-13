@@ -16,6 +16,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed (2026-06-13)
 
+- **Controller project `scm_update_on_launch: true`** (dev-time) — so playbook
+  changes merged to `main` take effect on the next job launch without a manual
+  project sync. Revisit before production (every workflow node re-syncs).
 - **EE bumped to v1.1.0** — added `ansible.controller` 4.8.0 (+collection → minor
   bump per the deliberate-update model). Manifest description and
   `docs/execution-environment.md` updated; `ee_version` default is now the single
