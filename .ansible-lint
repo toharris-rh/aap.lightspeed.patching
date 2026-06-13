@@ -4,6 +4,19 @@
 # installed, so syntax-only checks apply.
 profile: basic
 
+# Certified collections aren't installed in CI (no Hub token), so declare the
+# modules/roles we use from them — otherwise syntax-check fails with
+# "couldn't resolve module/action". (Locally they resolve because the
+# collections are installed; CI is the clean case these mocks cover.)
+mock_modules:
+  - ansible.controller.host
+  - ansible.controller.group
+  - servicenow.itsm.api
+  - servicenow.itsm.api_info
+  - servicenow.itsm.incident
+mock_roles:
+  - redhat.rhel_system_roles.rhc
+
 exclude_paths:
   - collections/ansible_collections/   # vendored collections, if any
   - context/                            # ansible-builder generated EE context
