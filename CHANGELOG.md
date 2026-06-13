@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed (2026-06-13)
 
+- **Terraform AWS region passed to the provision apply** (#19 follow-up) — the
+  AAP AWS credential injects access key/secret but no region, and `providers.tf`
+  reads the region from `AWS_DEFAULT_REGION`, so `terraform apply` failed with
+  *"invalid AWS Region: "*. `provision_vm_aws.yml` now sets `AWS_DEFAULT_REGION`
+  (= `aws_region`, default `us-east-1`) in the apply task environment.
+
 - **Provision VM registers the host via `ansible.controller`** (#19) — `provision_vm_aws.yml`
   used `ansible.platform.host` / `.group`, but `ansible.platform` has **no**
   host/group module, so the job failed with *"couldn't resolve module/action
