@@ -72,6 +72,17 @@ export INSIGHTS_CLIENT_ID=""
 export INSIGHTS_CLIENT_SECRET=""
 
 # ============================================================================
+# Automation Analytics / Insights (Automation Calculator)
+# Red Hat service account (client ID + secret) from
+# https://console.redhat.com/iam/service-accounts
+# Feeds the Automation Calculator at console.redhat.com.
+# Leave unset to skip analytics. After loading, force a first upload from the
+# AAP UI: Settings → System → Insights for Ansible Automation Platform.
+# ============================================================================
+export REDHAT_SUBSCRIPTIONS_CLIENT_ID=""
+export REDHAT_SUBSCRIPTIONS_CLIENT_SECRET=""
+
+# ============================================================================
 # AAP EE (Execution Environment)
 # Defaults to the built-in EE; override if you build a custom EE.
 # ============================================================================

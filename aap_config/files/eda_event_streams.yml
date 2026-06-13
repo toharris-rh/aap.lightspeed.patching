@@ -7,4 +7,4 @@ eda_event_streams:
   - name: "{{ eda_event_stream_name }}"
     credential_name: "{{ eda_snow_event_stream_credential }}"
     event_stream_type: "ServiceNow"
-    organization_name: "{{ my_organization }}"
+    organization: "{{ my_organization }}"

@@ -74,7 +74,7 @@ project_name: "Lightspeed Patching"
 inventory_name: "lightspeed-patching"
 control_inventory_name: "lightspeed-patching-control"
 workflow_provision_name: "Lightspeed Patching - Provision and Onboard"
-workflow_remediate_name: "Lightspeed Patching - Remediate CVE"
+workflow_remediate_name: "Lightspeed Patching - Remediate CVE Workflow"
 
 cred_aws: "Lightspeed Patching - AWS"
 cred_linux: "Lightspeed Patching - Linux Machine"
