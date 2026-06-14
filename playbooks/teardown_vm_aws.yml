@@ -100,20 +100,43 @@
       ansible.builtin.fail:
         msg: "terraform destroy exited {{ tf_destroy_result.rc | default('?') }}"
 
-    - name: Deregister the host from the AAP inventory
-      when: teardown_linux_fqdn | default('') | length > 0
+    - name: Deregister all hosts from the AAP inventory
       block:
         - name: Acquire AAP token
           ansible.builtin.include_tasks: "{{ playbook_dir }}/../aap_config/tasks/aap_token_acquire.yml"
 
-        - name: Remove the host from the lightspeed-patching inventory
-          ansible.controller.host:
-            controller_host: "{{ aap_hostname }}"
-            aap_token: "{{ aap_token }}"
+        - name: Look up the inventory ID
+          ansible.builtin.uri:
+            url: "{{ aap_hostname }}/api/controller/v2/inventories/?name={{ lsp_inventory | urlencode }}"
+            method: GET
+            headers:
+              Authorization: "Bearer {{ aap_token }}"
             validate_certs: "{{ aap_validate_certs }}"
-            name: "{{ teardown_linux_fqdn }}"
-            inventory: "{{ lsp_inventory }}"
-            state: absent
+            status_code: 200
+          register: inventory_lookup
+
+        - name: Fetch all hosts in the inventory
+          ansible.builtin.uri:
+            url: "{{ aap_hostname }}/api/controller/v2/hosts/?inventory={{ inventory_lookup.json.results[0].id }}"
+            method: GET
+            headers:
+              Authorization: "Bearer {{ aap_token }}"
+            validate_certs: "{{ aap_validate_certs }}"
+            status_code: 200
+          register: inventory_hosts
+          when: inventory_lookup.json.count > 0
+
+        - name: Delete every host in the inventory via REST (bypasses 'running jobs' lock)
+          ansible.builtin.uri:
+            url: "{{ aap_hostname }}/api/controller/v2/hosts/{{ item.id }}/"
+            method: DELETE
+            headers:
+              Authorization: "Bearer {{ aap_token }}"
+            validate_certs: "{{ aap_validate_certs }}"
+            status_code: [204, 404]
+          loop: "{{ inventory_hosts.json.results | default([]) }}"
+          loop_control:
+            label: "{{ item.name }}"
 
       always:
         - name: Release AAP token

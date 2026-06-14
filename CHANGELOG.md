@@ -16,6 +16,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   from the Provision step. Creates the CI in `cmdb_ci_linux_server` and relates
   it to the "Lightspeed Patching Demo" Business Application.
 
+### Fixed (2026-06-13)
+
+- **`teardown_vm_aws.yml`** — two stale-host bugs fixed:
+  1. Host deletion used `ansible.controller.host state: absent` which calls the
+     AAP DELETE API and fails with *"Resource is being used by running jobs"*
+     when the host is referenced by recent job records. Replaced with a direct
+     `ansible.builtin.uri` DELETE loop — the REST endpoint does not carry the
+     same lock.
+  2. Teardown only removed the host recorded in Terraform state; any stale host
+     from a previous run with a different FQDN was left in the inventory.
+     Replaced with a query-all-then-delete approach that clears every host in
+     the `lightspeed-patching` inventory, not just the current Terraform one.
+
 ### Removed (2026-06-13)
 
 - **`jt_register_insights`** job template and its `group_vars` var removed —
