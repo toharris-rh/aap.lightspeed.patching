@@ -2,14 +2,19 @@
 # ============================================================================
 # playbooks/register_rhel.yml
 # ============================================================================
-# Registers a new RHEL host to the Red Hat CDN using subscription-manager
-# and an activation key. Must run after the host is reachable via SSH.
+# Registers a new RHEL host to the Red Hat CDN and Red Hat Insights in a
+# single play. Must run after the host is reachable via SSH.
+#
+# Step 1 — CDN: subscription-manager via the rhc system role + activation key.
+# Step 2 — Insights: installs insights-client and registers with
+#           --display-name={{ inventory_hostname }} so the public FQDN
+#           (not the private EC2 hostname) appears in console.redhat.com.
 #
 # Credentials: Lightspeed Patching - Red Hat CDN  (RH_ORG_ID, RH_ACTIVATION_KEY)
 #              Lightspeed Patching - Linux Machine (SSH)
 # ============================================================================
 
-- name: Register RHEL to Red Hat CDN
+- name: Register RHEL to Red Hat CDN and Red Hat Insights
   hosts: all
   gather_facts: false
   become: true
@@ -19,13 +24,14 @@
     rh_activation_key: "{{ lookup('ansible.builtin.env', 'RH_ACTIVATION_KEY') }}"
 
   tasks:
-    - name: Assert registration credentials are set
+    - name: Assert CDN registration credentials are set
       ansible.builtin.assert:
         that:
           - rh_org_id | length > 0
           - rh_activation_key | length > 0
         fail_msg: "RH_ORG_ID and RH_ACTIVATION_KEY must be set (use the 'Lightspeed Patching - Red Hat CDN' credential)."
 
+    # ── Step 1: Red Hat CDN ───────────────────────────────────────────────────
     - name: Register to Red Hat CDN (certified rhc system role)
       ansible.builtin.include_role:
         name: redhat.rhel_system_roles.rhc
@@ -42,6 +48,30 @@
               - "{{ rh_activation_key }}"
         rhc_auto_attach: true
 
+    # ── Step 2: Red Hat Insights ──────────────────────────────────────────────
+    - name: Install insights-client
+      ansible.builtin.dnf:
+        name: insights-client
+        state: present
+
+    - name: Register with Insights (display-name set to public FQDN)
+      ansible.builtin.command:
+        cmd: "insights-client --register --display-name={{ inventory_hostname }}"
+      register: insights_reg
+      changed_when: "'Successfully registered' in insights_reg.stdout"
+      failed_when: insights_reg.rc != 0 and 'already registered' not in insights_reg.stdout
+
+    - name: Trigger initial Insights check-in
+      ansible.builtin.command:
+        cmd: insights-client --check-results
+      changed_when: false
+      failed_when: false
+
+    - name: Show Insights registration result
+      ansible.builtin.debug:
+        msg: "{{ insights_reg.stdout }}"
+
+    # ── ServiceNow work note ──────────────────────────────────────────────────
     - name: Log registration to ServiceNow
       ansible.builtin.include_role:
         name: snow_log
@@ -51,5 +81,6 @@
         snow_log_ticket_sys_id: "{{ ticket_sys_id | default('') }}"
         snow_log_message: >-
           {{ inventory_hostname }}: Registered to Red Hat CDN
-          (org: {{ rh_org_id }}, key: {{ rh_activation_key }}).
+          (org: {{ rh_org_id }}, key: {{ rh_activation_key }})
+          and Red Hat Insights (display-name: {{ inventory_hostname }}).
       when: ticket_number is defined and ticket_number | length > 0

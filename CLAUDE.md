@@ -21,6 +21,7 @@ Load the relevant skill before working in its area:
 | [`.claude/skills/automation-hub/SKILL.md`](.claude/skills/automation-hub/SKILL.md) | Red Hat Automation Hub — certified vs community collections, resolving certified versions via the Hub API, EE builds pulling certified content, Private Automation Hub |
 | [`.claude/skills/execution-environment/SKILL.md`](.claude/skills/execution-environment/SKILL.md) | Build / version / update the custom EE (terraform + certified collections) and ship it quay→PAH→Controller; build gotchas and the immutable-semver update model |
 | [`.claude/skills/terraform/SKILL.md`](.claude/skills/terraform/SKILL.md) | The `terraform/` AWS provisioning (VPC + RHEL9 EC2, S3 state, t-shirt sizing), how `provision_vm_aws.yml` runs it from AAP, and the region/cred/EE gotchas |
+| [`.claude/skills/lightspeed/SKILL.md`](.claude/skills/lightspeed/SKILL.md) | Red Hat Insights / Lightspeed API — OAuth2 service-account auth, Insights inventory + vulnerability endpoints, the `--display-name` hostname requirement, console.redhat.com RBAC roles, and the CVE→Insights→CMDB→incident linking pattern |
 
 When you add a new skill, add a row here so future sessions discover it.
 
