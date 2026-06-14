@@ -121,6 +121,7 @@ cred_rh_cdn: "Lightspeed Patching - Red Hat CDN"
 # Job template names
 jt_provision: "Lightspeed Patching - Provision VM (AWS)"
 jt_teardown: "Lightspeed Patching - Teardown VM (AWS)"
+jt_configure_motd: "Lightspeed Patching - Configure MOTD"
 jt_register_rhel: "Lightspeed Patching - Register RHEL"
 jt_register_cmdb: "Lightspeed Patching - Register CMDB CI"
 jt_patch_rhel: "Lightspeed Patching - Patch RHEL"

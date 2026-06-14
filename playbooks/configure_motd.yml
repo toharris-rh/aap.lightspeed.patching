@@ -1,0 +1,25 @@
+---
+- name: Configure pre-login banner and MOTD
+  hosts: all
+  gather_facts: false
+  become: true
+
+  tasks:
+    - name: Deploy pre-login banner
+      ansible.builtin.copy:
+        src: issue
+        dest: "{{ item }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop:
+        - /etc/issue
+        - /etc/issue.net
+
+    - name: Deploy MOTD
+      ansible.builtin.copy:
+        src: motd
+        dest: /etc/motd
+        owner: root
+        group: root
+        mode: "0644"
