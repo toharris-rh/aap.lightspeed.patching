@@ -61,8 +61,7 @@ they affect everyone on the instance.
 - **Always delete AAP tokens** — any playbook that creates a token must delete
   it in an `always:` block so stale tokens don't accumulate.
 - **CHANGELOG.md** — every change adds an entry under Added / Changed / Fixed /
-  Removed. (Note: the current CHANGELOG header still references the upstream
-  template `aap.eda.dynatrace.push` — correct it when next editing that file.)
+  Removed.
 - **Additive only** — don't remove old capabilities until replacements are proven.
 - **One concern per PR** — group changes by shared root cause.
 - **Never put customer info in tracked files** — no customer names, RHDP URLs,
