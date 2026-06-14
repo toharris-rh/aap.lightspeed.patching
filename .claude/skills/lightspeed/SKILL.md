@@ -86,6 +86,30 @@ Response: `{"total": 1, "results": [{"id": "<uuid>", "display_name": "...", ...}
 - `results[0].id` is the **Insights system UUID** used in all other API calls.
 - Returns `total: 0` if the host is not registered — run "Register Insights" JT first.
 
+### Two different "Insights UUIDs" — don't confuse them
+
+There are two UUIDs and they answer different questions:
+
+| UUID | Where | What it is |
+|------|-------|-----------|
+| **`insights_id`** (machine-id) | on the host: `sudo cat /etc/insights-client/machine-id` | The client's own identity, written at registration. Also exposed as `insights_id` on the inventory record. |
+| **inventory record `id`** | API: `results[0].id` from the inventory lookup above | The Insights **inventory** UUID; this is the one the vulnerability/system endpoints take in their path. |
+
+When someone asks for "the Insights UUID" of a provisioned host, the quickest answer is the on-host `insights_id`:
+
+```bash
+sudo cat /etc/insights-client/machine-id    # e.g. 1ad8a893-4c28-44d9-87f0-c3a91570fc83
+sudo insights-client --status               # confirms registration ("Insights API confirms registration")
+```
+
+Notes:
+- On EC2 RHEL the `insights_id` often **equals the RHSM system identity**
+  (`sudo subscription-manager identity`) — they were the same value on the
+  provisioned demo host, which can be mistaken for a coincidence but is normal.
+- If you specifically need the inventory record `id` (the one API calls take),
+  resolve it from the `insights_id` or the host FQDN via the inventory lookup —
+  `GET /api/inventory/v1/hosts?insights_id=<machine-id>` or `?display_name=<fqdn>`.
+
 ### Vulnerability — CVEs affecting a specific system
 
 ```
