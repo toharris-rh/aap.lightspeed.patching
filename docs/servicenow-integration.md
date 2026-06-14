@@ -50,6 +50,7 @@ AAP Workflow: Lightspeed Patching - Instantaneous Patch
 | `playbooks/servicenow/create_change_request.yml` | Create CHG when advisory identified |
 | `playbooks/servicenow/notice_patch_started.yml` | Transition CHG to Implement + live AAP link |
 | `playbooks/servicenow/update_change_request.yml` | Close CHG (success) or Cancel (failure) |
+| `playbooks/servicenow/register_cmdb_and_relate.yml` | Register host CI in CMDB, relate to Business App, link to RITM |
 | `playbooks/servicenow/update_cmdb_patch_status.yml` | Update CI last patched date in CMDB |
 | `playbooks/servicenow/create_incident.yml` | Open INC on patch failure |
 | `playbooks/roles/snow_log/` | Role for real-time per-host work notes during patching |
