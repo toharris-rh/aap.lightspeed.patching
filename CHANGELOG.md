@@ -7,6 +7,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed (2026-06-14)
 
+- **lightspeed-snow-setup skill — verification + segregation learnings**.
+  Added a "Verifying from the ServiceNow side" section (the `syslog_transaction`
+  / `sys_log` queries to confirm an inbound POST and its auth, the PDT (UTC−7)
+  display-timezone note) and corrected the segregation guidance: a connectivity
+  Test persists nothing, and even real incidents (e.g. `INC0011410`) arrive with
+  an **empty `Account id:`** field — so SEs cannot be told apart by Red Hat
+  org/account ID. Documented the working alternatives (correlate by
+  CVE + host + timestamp, or a per-SE assignment group). Fixed the stale claim
+  that a Test creates a record.
+
 - **lightspeed skill — clarify the two "Insights UUIDs"**. Documented the
   distinction between the on-host `insights_id`
   (`/etc/insights-client/machine-id`) and the Insights inventory record `id`

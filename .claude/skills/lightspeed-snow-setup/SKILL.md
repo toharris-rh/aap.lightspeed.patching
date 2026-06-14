@@ -102,7 +102,68 @@ green check mark.
 
 ![Successful integration test](../../../docs/images/native-servicenow-integration-test-success.png)
 
-Then confirm a corresponding record appears in ServiceNow.
+**A connectivity Test does NOT create an incident.** It is a ping the app
+acknowledges with a 2xx; it persists nothing. Don't wait for a record to appear —
+the green check in the console is the success signal. Real incidents only appear
+for **real** Advisory/Vulnerability events on a registered host.
+
+## Verifying from the ServiceNow side (admin / API)
+
+A console green check means HCC got a 2xx back, but you can also confirm it
+landed and authenticated from ServiceNow. Useful when a test "succeeds" in the
+console but you want proof, or when debugging auth.
+
+**Timezone:** the instance UI/`sys_created_on` render in **PDT (UTC−7)**. An HCC
+test logged at `19:14 UTC` shows as `12:14` in ServiceNow — convert before you
+go hunting.
+
+1. **Inbound POST landed** — the real webhook request (filter on the app path,
+   not `urlLIKE`, or you'll also match your own monitoring queries):
+   ```
+   GET /api/now/table/syslog_transaction
+       ?sysparm_query=urlSTARTSWITH/api/x_rhtpp_rh_webhook^ORDERBYDESCsys_created_on
+   ```
+   A row at your test time = ServiceNow received it.
+2. **Auth result** — search the system log:
+   ```
+   GET /api/now/table/sys_log?sysparm_query=messageLIKErh_insights_integration
+   ```
+   A `Basic authentication failed for user: rh_insights_integration` entry = wrong
+   Secret token. **No such entry + console green = auth succeeded.**
+
+What you will **not** see, and why it matters:
+- **No request body is logged.** `syslog_transaction` does not store the POST
+  body, and the app has **no tables of its own**. The Red Hat **org/account ID**
+  travels in the body, so it is **not searchable** anywhere in ServiceNow after a
+  test (searching `sys_log` / incidents / `ecc_queue` for an org id returns
+  nothing).
+- The inbound transaction shows **empty `user` and `client_ip`** even on success —
+  normal for scripted-REST inbound; not a failure indicator.
+- On a connectivity Test you **cannot tell one SE's test from another's** — every
+  test is an identical bare POST.
+
+### Real incidents: what a working event looks like (and the segregation gap)
+
+A real Advisory/Vulnerability event **does** open an incident. Example
+(`INC0011410`, verified 2026-06-13):
+
+| Field | Value |
+|-------|-------|
+| `sys_created_by` | `rh_insights_integration` (every SE's events look the same) |
+| `opened_by` / `caller_id` | `Red Hat Insights Integration` |
+| `short_description` | `VULNERABILITY: Reported CVE-2025-38352` |
+| `description` | `Account id:` *(empty!)*, `Event type:`, `CVSS score:`, `CVE url:`, … |
+
+**The `Account id:` line in the incident description comes through EMPTY** — the
+Red Hat org/account ID is **not populated even on real incidents**. So per-org
+attribution by account ID is **not currently possible**, on tests *or* real
+events. To tell SEs apart on the shared instance you must use an alternative:
+- correlate by **CVE + affected host FQDN + timestamp**, or
+- set a **distinct assignment group per SE** in each console integration's config
+  (so each SE's incidents route to their own group).
+
+(Minor quirk: description values are prefixed with a zero-width BOM char, e.g.
+`Impact id: ﻿5` — harmless, but don't be surprised by it when parsing.)
 
 ---
 
@@ -113,16 +174,18 @@ Then confirm a corresponding record appears in ServiceNow.
 | `Basic authentication failed for user: rh_insights_integration` in the ServiceNow system log | Password mismatch — the Secret token in the console doesn't match the actual password | Admin resets via **Set Password** in the UI (not the REST API); redistribute the new password |
 | Test fires but no record in ServiceNow | App installed but not active, or wrong Endpoint URL | Confirm app is active; check the URL path exactly — GET returns 405 (POST only) |
 | Console test returns an error immediately | Wrong Endpoint URL or SSL issue | Double-check the instance hostname; confirm SSL cert is valid |
-| Records land but can't distinguish SE orgs | All SEs share `rh_insights_integration` — no automatic isolation | Filter by Red Hat org/account ID in the inbound payload; use a per-SE assignment group |
+| Records land but can't distinguish SE orgs | All SEs share `rh_insights_integration`, and the incident `Account id:` field arrives empty — no org-id attribution | Correlate by CVE + host FQDN + timestamp, or set a distinct assignment group per SE in each console integration's config |
 
 ---
 
 ## Shared-instance caveat
 
 This ServiceNow instance is shared by ~33 SEs. All events land in the **same**
-tables with no automatic per-org separation. The inbound payload includes the
-Red Hat org/account ID — use that to segregate records if needed before live
-demos get busy.
+`incident` table with no automatic per-org separation, and the incident's
+`Account id:` field arrives **empty**, so you **cannot** segregate by Red Hat
+org/account ID (see "Real incidents" above). Before live demos get busy,
+distinguish your records by **CVE + host FQDN + timestamp**, or configure a
+**per-SE assignment group** in your console integration.
 
 Do **not** delete `rh_insights_integration` — it is the only account the app
 accepts and deleting it breaks every SE's integration.
