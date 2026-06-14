@@ -1,0 +1,91 @@
+---
+# ============================================================================
+# playbooks/servicenow/update_cmdb_correlation_id.yml
+# ============================================================================
+# Stamps the Red Hat Insights inventory UUID into the CMDB CI's correlation_id
+# field, tying the ServiceNow CI back to its Insights record.
+#
+# The UUID is read directly from /etc/insights-client/machine-id on the host
+# (written at Insights registration time), avoiding the need for Insights API
+# credentials. The ServiceNow PATCH is delegated to localhost.
+#
+# Consumed inputs (workflow artifacts / extra_vars):
+#   cmdb_ci_sys_id           CI sys_id (artifact from register_cmdb_and_relate);
+#                            falls back to a cmdb_ci_linux_server lookup by FQDN
+#
+# Credentials: Lightspeed Patching - ServiceNow  (SN_* env vars)
+#              Lightspeed Patching - Linux Machine (SSH to read machine-id)
+# ============================================================================
+
+- name: Stamp Insights inventory UUID into the CMDB CI correlation_id
+  hosts: all
+  gather_facts: false
+  become: true
+
+  vars:
+    ci_resource: cmdb_ci_linux_server
+
+  tasks:
+    - name: Read the Insights machine-id from the host
+      ansible.builtin.slurp:
+        src: /etc/insights-client/machine-id
+      register: machine_id_raw
+
+    - name: Store the Insights UUID
+      ansible.builtin.set_fact:
+        insights_uuid: "{{ (machine_id_raw.content | b64decode).strip() }}"
+
+    - name: Fail if machine-id is empty
+      ansible.builtin.assert:
+        that:
+          - insights_uuid | length > 0
+        fail_msg: >-
+          /etc/insights-client/machine-id is empty — is the host registered
+          with Insights?
+
+    # ── Resolve CI sys_id, then patch correlation_id ─────────────────────────
+    - name: Use the CI sys_id artifact when present
+      ansible.builtin.set_fact:
+        ci_sys_id: "{{ cmdb_ci_sys_id }}"
+      when:
+        - cmdb_ci_sys_id is defined
+        - cmdb_ci_sys_id | string | length > 0
+
+    - name: Resolve CI sys_id by FQDN (fallback)
+      when: ci_sys_id is not defined
+      delegate_to: localhost
+      become: false
+      block:
+        - name: Look up CI in {{ ci_resource }} by FQDN
+          servicenow.itsm.api_info:
+            resource: "{{ ci_resource }}"
+            sysparm_query: "fqdn={{ inventory_hostname }}^ORname={{ inventory_hostname }}"
+          register: ci_lookup
+
+        - name: Fail if no CMDB CI found for this host
+          ansible.builtin.assert:
+            that:
+              - ci_lookup.record | length > 0
+            fail_msg: >-
+              No CI found in {{ ci_resource }} for '{{ inventory_hostname }}'.
+              Run the 'Register CMDB CI' job template first.
+
+        - name: Set CI sys_id from the lookup
+          ansible.builtin.set_fact:
+            ci_sys_id: "{{ ci_lookup.record[0].sys_id }}"
+
+    - name: Stamp Insights inventory UUID into Correlation ID
+      delegate_to: localhost
+      become: false
+      servicenow.itsm.api:
+        action: patch
+        resource: "{{ ci_resource }}"
+        sys_id: "{{ ci_sys_id }}"
+        data:
+          correlation_id: "insights_id: {{ insights_uuid }}"
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg: >-
+          CI {{ inventory_hostname }} ({{ ci_sys_id }}) correlation_id set to
+          Insights UUID {{ insights_uuid }}.

@@ -9,9 +9,10 @@
 #           └─►success─► Configure MOTD (banner + motd)
 #           │              └─► Register RHEL (CDN + Insights in one play)
 #           │                    └─► Patch RHEL (full)
-#           │                          └─►success─► SNow Update RITM (success)
-#           │                          └─►failure─► SNow Create INC (failure)
-#           │                                         └─►always─► SNow Update RITM (failure)
+#           │                    │     └─►success─► SNow Update RITM (success)
+#           │                    │     └─►failure─► SNow Create INC (failure)
+#           │                    │                    └─►always─► SNow Update RITM (failure)
+#           │                    └─► SNow Stamp Correlation ID  [parallel, terminal leaf]
 #           └─►success─► Register CMDB CI  [parallel, terminal leaf]
 #           └─►failure─► SNow Create INC (failure)
 #                          └─►always─► SNow Update RITM (failure)
@@ -66,6 +67,10 @@ controller_workflows:
         unified_job_template: "{{ jt_register_rhel }}"
         success_nodes:
           - patch_rhel
+          - snow_correlation_id
+
+      - identifier: snow_correlation_id
+        unified_job_template: "{{ jt_snow_correlation_id }}"
 
       - identifier: register_cmdb
         unified_job_template: "{{ jt_register_cmdb }}"

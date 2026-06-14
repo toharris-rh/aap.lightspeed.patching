@@ -56,6 +56,11 @@ export SN_HOST=""                      # e.g. https://your-instance.service-now.
 export SN_USERNAME="rh_insights_tharris"
 export SN_PASSWORD=""
 
+# ServiceNow user (user_name) recorded as 'Managed by' on CMDB CIs created by
+# register_cmdb_and_relate.yml. Resolved to a sys_user sys_id at runtime.
+# Defaults to 'hercules' if unset. e.g. hercules (Eric) or toharris (Tony).
+export CMDB_MANAGED_BY="hercules"
+
 # EDA Event Stream bearer token (matched pair — same value in:
 #   1. AAP EDA event-stream credential
 #   2. ServiceNow Business Rule outbound REST header)

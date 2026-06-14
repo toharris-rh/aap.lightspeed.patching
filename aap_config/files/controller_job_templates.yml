@@ -92,6 +92,23 @@ controller_templates:
     ask_variables_on_launch: true
     extra_vars:
       cmdb_business_app: "{{ cmdb_business_app }}"
+      cmdb_managed_by: "{{ cmdb_managed_by }}"
+
+  # ── Stamp Insights UUID into CMDB correlation_id ─────────────────────────
+  # Runs after Register RHEL (Insights registration). Reads the Insights UUID
+  # from /etc/insights-client/machine-id on the host (SSH), then PATCHes
+  # correlation_id on the CMDB CI via ServiceNow.
+  - name: "{{ jt_snow_correlation_id }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/servicenow/update_cmdb_correlation_id.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_linux }}"
+      - "{{ cred_servicenow }}"
+    ask_variables_on_launch: true
 
   # ── Patch RHEL (full) ──────────────────────────────────────────────────────
   - name: "{{ jt_patch_rhel }}"

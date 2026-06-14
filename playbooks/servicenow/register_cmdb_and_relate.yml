@@ -20,6 +20,10 @@
 # Optional inputs (from EDA rulebook / workflow extra_vars):
 #   ticket_number         RITM number (e.g. RITM0010042) — guards RITM linkage
 #   ticket_sys_id         RITM sys_id (skips the lookup when present)
+#   cmdb_managed_by       SN user_name -> CI 'Managed by' (default: hercules)
+#
+# Note: the Insights inventory UUID is stamped into the CI's correlation_id
+# separately by update_cmdb_correlation_id.yml, after Insights registration.
 #
 # Credential: Lightspeed Patching - ServiceNow  (SN_* env vars)
 # ============================================================================
@@ -43,6 +47,9 @@
     ci_category: Hardware
     ci_support_group: "Ansible West Tigers"
     ci_assigned_to: service.ansible
+    # ServiceNow user_name recorded as 'Managed by' on the CI. Resolved to a
+    # sys_user sys_id below. Defaults to 'hercules' for standalone runs.
+    cmdb_managed_by: "{{ cmdb_managed_by | default('hercules') }}"
 
   tasks:
     - name: Require a host FQDN
@@ -77,6 +84,22 @@
       ansible.builtin.set_fact:
         ba_sys_id: "{{ ba_lookup.record[0].sys_id if (ba_lookup.record | length > 0) else ba_created.record.sys_id }}"
 
+    # --- 'Managed by' user (resolve user_name -> sys_id) ---------------------
+    - name: Look up the 'Managed by' user by user_name
+      servicenow.itsm.api_info:
+        resource: sys_user
+        sysparm_query: "user_name={{ cmdb_managed_by }}"
+      register: managed_by_lookup
+
+    - name: Resolve the 'Managed by' user sys_id (empty if not found)
+      ansible.builtin.set_fact:
+        managed_by_sys_id: "{{ managed_by_lookup.record[0].sys_id if (managed_by_lookup.record | length > 0) else '' }}"
+
+    - name: Warn if the 'Managed by' user was not found
+      when: managed_by_sys_id | length == 0
+      ansible.builtin.debug:
+        msg: "WARNING: no sys_user matched user_name '{{ cmdb_managed_by }}' — leaving Managed by unset."
+
     # --- Host CI (create or update) ------------------------------------------
     - name: Create or update the host configuration item
       servicenow.itsm.configuration_item:
@@ -95,6 +118,7 @@
           fqdn: "{{ cmdb_ci_fqdn }}"
           model_number: "{{ cmdb_ci_size if cmdb_ci_size else omit }}"
           assignment_group: "{{ ci_support_group }}"
+          managed_by: "{{ managed_by_sys_id if managed_by_sys_id else omit }}"
       register: ci_result
 
     - name: Resolve the host CI sys_id
