@@ -124,7 +124,7 @@ controller_templates:
     organization: "{{ my_organization }}"
     inventory: "{{ inventory_name }}"
     project: "{{ project_name }}"
-    playbook: playbooks/downgrade_kernel.yml
+    playbook: playbooks/introduce_cve.yml
     execution_environment: "{{ my_execution_environment }}"
     credentials:
       - "{{ cred_linux }}"

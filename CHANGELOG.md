@@ -18,6 +18,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed (2026-06-14)
 
+- **`introduce_cve.yml`** — integrated kernel-downgrade logic directly into the
+  playbook (replaces the old stub package-downgrade approach); installs
+  `target_kernel` via dnf, sets grubby default, reboots, re-gathers facts, then
+  runs `subscription-manager facts --update` and `insights-client`. JT
+  `jt_introduce_cve` now points back at `introduce_cve.yml`. Deleted the
+  now-redundant `downgrade_kernel.yml`.
+
 - **`jt_introduce_cve`** ("Lightspeed Patching - Introduce CVE (Demo Setup)") —
   switched playbook from `introduce_cve.yml` to `downgrade_kernel.yml`; added
   survey for `target_kernel` (default `5.14.0-427.40.1.el9_4`). Removed the
