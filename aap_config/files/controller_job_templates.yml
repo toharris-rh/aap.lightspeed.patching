@@ -67,6 +67,19 @@ controller_templates:
       - "{{ cred_rh_cdn }}"
     ask_limit_on_launch: true
 
+  # ── Register CMDB CI + relate to Business Application ─────────────────────
+  - name: "{{ jt_register_cmdb }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ control_inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/servicenow/register_cmdb_and_relate.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_servicenow }}"
+    extra_vars:
+      cmdb_business_app: "{{ cmdb_business_app }}"
+
   # ── Patch RHEL (full) ──────────────────────────────────────────────────────
   - name: "{{ jt_patch_rhel }}"
     job_type: run
