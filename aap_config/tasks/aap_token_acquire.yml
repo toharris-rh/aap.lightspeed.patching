@@ -21,7 +21,7 @@
     aap_username: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_USERNAME') | default('admin', true) }}"
     aap_password: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_PASSWORD') }}"
     aap_validate_certs: "{{ aap_validate_certs }}"
-    description: "lightspeed-patching CaC — auto-managed, deleted in always"
+    description: "lightspeed-patching CaC - auto-managed, deleted in always"
     scope: "{{ cac_token_scope | default('write') }}"
     state: present
   register: cac_token

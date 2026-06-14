@@ -35,6 +35,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed (2026-06-14)
 
+- **ASCII-only descriptions on EDA/token CaC objects** so `load.yml` survives
+  HTTP clients that encode headers as latin-1 (e.g. Python 3.14's `http.client`,
+  which rejects non-ASCII chars with `UnicodeEncodeError`). Replaced em-dashes /
+  arrows in the minted CaC token description (`aap_token_acquire.yml`) and the
+  three EDA credential descriptions (`eda_credentials.yml`) with ASCII
+  equivalents. (Root cause of the load failure is an unsupported interpreter —
+  ansible-core 2.18 on Python 3.14 — but ASCII descriptions are correct regardless.)
+
 - **Register CMDB CI no longer fails with a recursive template loop** (issue
   #80). `register_cmdb_and_relate.yml` defined a self-referential play var
   (`cmdb_managed_by: "{{ cmdb_managed_by | default('hercules') }}"`), which
