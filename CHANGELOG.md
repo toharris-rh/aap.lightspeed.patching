@@ -7,6 +7,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed (2026-06-14)
 
+- **Disable `scm_update_on_launch`** on the Lightspeed Patching project.
+  Every workflow node was triggering a redundant project sync (~25s each),
+  adding minutes to each workflow run. Sync manually or via `load.yml` after
+  pushing changes to `main`.
+
 - **Register CMDB CI — enriched fields, RITM linkage, parallel branch**
   (issue #43). Switched from raw `servicenow.itsm.api` POST to
   `servicenow.itsm.configuration_item` with `state: present` (upsert). CI now
