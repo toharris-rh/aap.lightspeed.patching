@@ -13,7 +13,7 @@
 # AAP — from the Red Hat Demo Platform (APD catalog item)
 # These values are displayed on the RHDP environment detail page after ordering.
 # ============================================================================
-export AAP_HOSTNAME=""                 # e.g. https://controller.XXXXXXX.rhdemos.com
+export AAP_HOSTNAME=""                 # e.g. https://controller.XXXXXXX.rhdemos.com — NO trailing slash (playbooks append /api/...)
 export AAP_CONTROLLER_USERNAME="admin"
 export AAP_CONTROLLER_PASSWORD=""
 export AAP_VALIDATE_CERTS="false"
