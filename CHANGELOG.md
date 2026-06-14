@@ -12,6 +12,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Engine login banner (`playbooks/files/motd`, installed by
   `playbooks/configure_motd.yml`) in a fenced code block. Docs-only.
 
+### Changed (2026-06-14)
+
+- **Correct contributor docs carried over from the upstream Dynatrace template**
+  (issue #63). `CONTRIBUTING.md`, `.github/SECURITY.md`, and
+  `.github/pull_request_template.md` described a Dynatrace → AAP EDA (push)
+  integration; rewritten for this repo (Lightspeed/AAP/EDA/ServiceNow patching)
+  with the correct secret policy (AAP tokens, ServiceNow creds, customer/RHDP
+  data). Added `ansible-lint --offline` and the `mock_modules` requirement to the
+  CONTRIBUTING workflow, and removed the now-stale CLAUDE.md note about the
+  CHANGELOG header still referencing `aap.eda.dynatrace.push`.
+
 ### Fixed (2026-06-14)
 
 - **Teardown inventory cleanup 401 — rename `aap_token` fact to `lsp_cac_token`**
