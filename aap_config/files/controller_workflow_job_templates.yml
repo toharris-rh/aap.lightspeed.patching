@@ -7,9 +7,10 @@
 #     └─► SNow Notice Started [parallel]
 #     └─► Provision VM (AWS Terraform)
 #           └─►success─► Register RHEL (CDN + Insights in one play)
-#                          └─► Patch RHEL (full)
-#                                └─►success─► SNow Update INC (closed)
-#                                └─►failure─► SNow Create INC (failure)
+#                          └─► Register CMDB CI
+#                                └─► Patch RHEL (full)
+#                                      └─►success─► SNow Update INC (closed)
+#                                      └─►failure─► SNow Create INC (failure)
 #           └─►failure─► SNow Create INC (failure)
 #
 # ── Workflow 2: Remediate CVE ─────────────────────────────────────────────────
@@ -54,6 +55,11 @@ controller_workflows:
 
       - identifier: register_rhel
         unified_job_template: "{{ jt_register_rhel }}"
+        success_nodes:
+          - register_cmdb
+
+      - identifier: register_cmdb
+        unified_job_template: "{{ jt_register_cmdb }}"
         success_nodes:
           - patch_rhel
 

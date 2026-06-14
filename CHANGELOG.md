@@ -7,6 +7,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added (2026-06-13)
 
+### Added (2026-06-13)
+
+- **`jt_register_cmdb`** ("Lightspeed Patching - Register CMDB CI") — new JT
+  wrapping `register_cmdb_and_relate.yml`; added as a workflow node in
+  "Provision and Onboard" between Register RHEL and Patch RHEL. Receives
+  `linux_fqdn`, `linux_public_ip`, `linux_instance_id` as workflow artifacts
+  from the Provision step. Creates the CI in `cmdb_ci_linux_server` and relates
+  it to the "Lightspeed Patching Demo" Business Application.
+
 ### Removed (2026-06-13)
 
 - **`jt_register_insights`** job template and its `group_vars` var removed —
