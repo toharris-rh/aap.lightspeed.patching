@@ -138,8 +138,13 @@ this credential's type; there is no separate `event_stream_type` field).
 
 ## Conventions for editing CaC
 
-- **Idempotent, additive** — re-running `load.yml` must be safe; don't remove old
-  object definitions until replacements are proven.
+- **Idempotent, additive (but not subtractive)** — re-running `load.yml` is
+  safe; it creates or updates objects but **never deletes** them. This means
+  orphaned nodes (e.g. workflow nodes removed from `files/` but still in AAP)
+  survive across re-runs. When you restructure a workflow and orphaned nodes
+  remain, **delete the workflow object in AAP and re-run `load.yml`** to
+  recreate it clean. Use the controller API or the AAP UI to delete, then let
+  CaC rebuild from the definitions in `files/`.
 - **No duplicate top-level keys** across `files/*.yml`.
 - **Names live in `group_vars/all.yml`**, referenced by var everywhere — don't
   hard-code object names in `files/`.
@@ -147,6 +152,17 @@ this credential's type; there is no separate `event_stream_type` field).
   so commit + push + (let the EDA project sync) before relying on a *rulebook*
   change being live. Activation *definitions* in `files/` are read locally and
   don't need a merge to test. (`main` is protected — see the repo-workflow skill.)
+- **Testing on a feature branch** — the CaC project definition
+  (`controller_projects.yml`) hardcodes `scm_branch: main`. To test CaC +
+  playbook changes on a feature branch before merging:
+  1. Temporarily edit `controller_projects.yml` to set `scm_branch:` to your
+     branch name (e.g. `feature/enrich-cmdb-ci`).
+  2. Run `load.yml` — this updates the AAP project to point at the branch,
+     syncs it, and applies all CaC objects.
+  3. Test in AAP (workflow visualizer, launch JTs, etc.).
+  4. **Revert** `controller_projects.yml` back to `scm_branch: main` before
+     committing — do **not** commit the branch override. After merging the PR,
+     run `load.yml` once more from `main` to restore the project pointer.
 - **Update `CHANGELOG.md`** for every change.
 
 ## Upstream reference
