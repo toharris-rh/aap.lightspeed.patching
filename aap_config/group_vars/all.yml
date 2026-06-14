@@ -135,6 +135,7 @@ jt_snow_update_inc: "Lightspeed Patching - SNow Update Incident"
 jt_snow_close_inc: "Lightspeed Patching - SNow Close Incident"
 jt_snow_create_inc: "Lightspeed Patching - SNow Create Incident (failure)"
 jt_snow_relate_cmdb: "Lightspeed Patching - SNow Relate CMDB CI to Incident"
+jt_downgrade_kernel: "Lightspeed Patching - Downgrade Kernel"
 
 # Nightly teardown schedule names (controller_schedules.yml) — 6 PM + 10 PM.
 teardown_schedule_name: "Lightspeed Patching - Nightly Teardown 6 PM"

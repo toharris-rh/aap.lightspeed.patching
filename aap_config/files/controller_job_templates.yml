@@ -130,6 +130,29 @@ controller_templates:
       - "{{ cred_linux }}"
     ask_limit_on_launch: true
 
+  # ── Downgrade kernel ───────────────────────────────────────────────────────
+  - name: "{{ jt_downgrade_kernel }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/downgrade_kernel.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_linux }}"
+    ask_limit_on_launch: true
+    survey_enabled: true
+    survey_spec:
+      name: ""
+      description: "Downgrade kernel to a specific NVR"
+      spec:
+        - question_name: Target kernel NVR
+          question_description: "Kernel version to install and boot (without arch suffix)"
+          variable: target_kernel
+          type: text
+          required: true
+          default: "5.14.0-427.40.1.el9_4"
+
   # ── ServiceNow callbacks (Provision workflow — RITM) ────────────────────────
   - name: "{{ jt_snow_notice_provision }}"
     job_type: run

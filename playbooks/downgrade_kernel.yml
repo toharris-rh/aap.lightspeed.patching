@@ -1,0 +1,56 @@
+---
+# ============================================================================
+# playbooks/downgrade_kernel.yml
+# ============================================================================
+# Installs a specific kernel version, sets it as the default boot entry,
+# reboots, then refreshes subscription-manager facts and runs insights-client
+# so that Insights and the RHSM inventory reflect the downgraded kernel.
+#
+# Inputs (extra_vars):
+#   target_kernel   kernel NVR without arch suffix
+#                   (default: 5.14.0-427.40.1.el9_4)
+#
+# Credentials: Lightspeed Patching - Linux Machine (SSH)
+# ============================================================================
+
+- name: Downgrade kernel to target version
+  hosts: all
+  gather_facts: true
+  become: true
+
+  vars:
+    target_kernel: "5.14.0-427.40.1.el9_4"
+
+  tasks:
+    - name: Install target kernel version
+      ansible.builtin.dnf:
+        name: "kernel-{{ target_kernel }}"
+        state: present
+      register: dnf_result
+
+    - name: Set target kernel as default boot entry
+      ansible.builtin.command:
+        cmd: "grubby --set-default /boot/vmlinuz-{{ target_kernel }}.{{ ansible_architecture }}"
+      changed_when: true
+
+    - name: Reboot into target kernel
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+
+    - name: Gather facts after reboot
+      ansible.builtin.setup:
+
+    - name: Verify running kernel
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: running kernel {{ ansible_kernel }}"
+
+    - name: Update subscription-manager facts
+      ansible.builtin.command:
+        cmd: subscription-manager facts --update
+      changed_when: false
+
+    - name: Run insights-client
+      ansible.builtin.command:
+        cmd: insights-client
+      changed_when: false
+      failed_when: false

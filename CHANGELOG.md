@@ -18,6 +18,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added (2026-06-13)
 
+- **`jt_downgrade_kernel`** ("Lightspeed Patching - Downgrade Kernel") — new JT wrapping
+  `playbooks/downgrade_kernel.yml`; installs a target kernel NVR via dnf, sets
+  it as the default boot entry with grubby, reboots, then runs
+  `subscription-manager facts --update` and `insights-client`. Survey exposes
+  `target_kernel` (default `5.14.0-427.40.1.el9_4`). `ask_limit_on_launch`
+  enabled so it can target individual hosts.
+
 ### Added (2026-06-13)
 
 - **`jt_register_cmdb`** ("Lightspeed Patching - Register CMDB CI") — new JT
