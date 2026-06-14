@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (2026-06-14)
+
+- **Enable the sshd pre-login banner in `configure_motd.yml`** (issue #67). The
+  playbook deployed `/etc/issue.net` but never set sshd's `Banner` directive, so
+  with OpenSSH's `Banner none` default the pre-login banner never displayed over
+  SSH. Added a `/etc/ssh/sshd_config.d/99-lightspeed-banner.conf` drop-in
+  (`Banner /etc/issue.net`, validated with `sshd -t`) and a handler that reloads
+  sshd. The post-login `/etc/motd` was unaffected (shown via PAM).
+
 ### Added (2026-06-14)
 
 - **Showcase the provisioned-host MOTD in the README** (issue #65). New
