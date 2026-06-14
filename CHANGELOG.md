@@ -7,6 +7,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed (2026-06-14)
 
+- **Register CMDB CI — enriched fields, RITM linkage, parallel branch**
+  (issue #43). Switched from raw `servicenow.itsm.api` POST to
+  `servicenow.itsm.configuration_item` with `state: present` (upsert). CI now
+  includes `serial_number` (EC2 instance ID), `model_number` (AWS instance type),
+  `environment`, `install_status`, `operational_status`, `category`,
+  `assigned_to`, and `assignment_group` — matching dc1.azure field parity. On
+  ServiceNow-driven runs, the CI is linked to the originating RITM via the
+  `task_ci` (Affected CIs) junction table. The workflow node now runs as a
+  parallel branch off Provision VM success (terminal leaf) instead of
+  sequentially between Register RHEL and Patch RHEL. CI sys_id published via
+  `set_stats` as `cmdb_ci_sys_id`.
+
 - **Provision workflow — RITM callbacks instead of incident callbacks**
   (issue #39). The Provision and Onboard workflow now uses RITM (requested item)
   callbacks matching the dc1.azure pattern: `notice_provision_started.yml` posts

@@ -2,25 +2,26 @@
 # ============================================================================
 # playbooks/servicenow/register_cmdb_and_relate.yml
 # ============================================================================
-# Ensures a provisioned RHEL host exists in the CMDB (cmdb_ci_linux_server) and
-# relates it to the "Lightspeed Patching Demo" Business Application
-# (cmdb_ci_business_app), creating the Business Application if it doesn't exist.
-# Idempotent — safe to re-run; create-if-missing for the app, the CI, and the
-# relationship.
+# Registers a provisioned RHEL host as a ServiceNow CMDB CI
+# (cmdb_ci_linux_server), relates it to the "Lightspeed Patching Demo"
+# Business Application (cmdb_ci_business_app), and — when triggered via a
+# ServiceNow catalog order — links the CI to the originating RITM via the
+# task_ci (Affected CIs) junction table.
 #
-# Inputs:
-#   cmdb_business_app   Business Application name (group_vars default
-#                       "Lightspeed Patching Demo")
-#   host_fqdn           the CI FQDN/name (defaults to linux_fqdn from the
-#                       provision set_stats)
-#   host_ip             optional public IP   (defaults to linux_public_ip)
-#   host_instance_id    optional EC2 id      (defaults to linux_instance_id)
+# Uses servicenow.itsm.configuration_item with state: present (upsert) so
+# re-runs update stale fields rather than silently skipping.
+#
+# Consumed inputs (workflow artifacts from Provision VM via set_stats):
+#   linux_fqdn            public DNS          -> name / fqdn
+#   linux_public_ip       public IP           -> ip_address
+#   linux_instance_id     EC2 instance ID     -> serial_number
+#   linux_vm_size_chosen  AWS instance type   -> other.model_number
+#
+# Optional inputs (from EDA rulebook / workflow extra_vars):
+#   ticket_number         RITM number (e.g. RITM0010042) — guards RITM linkage
+#   ticket_sys_id         RITM sys_id (skips the lookup when present)
 #
 # Credential: Lightspeed Patching - ServiceNow  (SN_* env vars)
-#
-# Shared-instance note: scoped entirely by sys_id after the name lookups; the
-# only new instance-wide object is the Business Application, which is the
-# explicit intent of this play.
 # ============================================================================
 
 - name: Register host in CMDB and relate it to the Business Application
@@ -29,12 +30,19 @@
   gather_facts: false
 
   vars:
-    cmdb_rel_type: "Uses::Used by"
     ci_resource: cmdb_ci_linux_server
     ba_resource: cmdb_ci_business_app
+    cmdb_rel_type: "Uses::Used by"
     cmdb_ci_fqdn: "{{ host_fqdn | default(linux_fqdn | default('')) }}"
     cmdb_ci_ip: "{{ host_ip | default(linux_public_ip | default('')) }}"
     cmdb_ci_instance: "{{ host_instance_id | default(linux_instance_id | default('')) }}"
+    cmdb_ci_size: "{{ host_vm_size | default(linux_vm_size_chosen | default('')) }}"
+    ci_environment: production
+    ci_install_status: installed
+    ci_operational_status: operational
+    ci_category: Hardware
+    ci_support_group: "Ansible West Tigers"
+    ci_assigned_to: service.ansible
 
   tasks:
     - name: Require a host FQDN
@@ -69,30 +77,29 @@
       ansible.builtin.set_fact:
         ba_sys_id: "{{ ba_lookup.record[0].sys_id if (ba_lookup.record | length > 0) else ba_created.record.sys_id }}"
 
-    # --- Host CI (create if missing) -----------------------------------------
-    - name: Look up the host CI by FQDN/name
-      servicenow.itsm.api_info:
-        resource: "{{ ci_resource }}"
-        sysparm_query: "fqdn={{ cmdb_ci_fqdn }}^ORname={{ cmdb_ci_fqdn }}"
-      register: ci_lookup
-
-    - name: Create the host CI if it does not exist
-      when: ci_lookup.record | length == 0
-      servicenow.itsm.api:
-        action: post
-        resource: "{{ ci_resource }}"
-        data:
-          name: "{{ cmdb_ci_fqdn }}"
+    # --- Host CI (create or update) ------------------------------------------
+    - name: Create or update the host configuration item
+      servicenow.itsm.configuration_item:
+        name: "{{ cmdb_ci_fqdn }}"
+        state: present
+        short_description: "RHEL 9 (AWS EC2 {{ cmdb_ci_instance | default('n/a', true) }}) — Lightspeed Patching demo"
+        serial_number: "{{ cmdb_ci_instance if cmdb_ci_instance else omit }}"
+        sys_class_name: "{{ ci_resource }}"
+        assigned_to: "{{ ci_assigned_to }}"
+        environment: "{{ ci_environment }}"
+        install_status: "{{ ci_install_status }}"
+        category: "{{ ci_category }}"
+        operational_status: "{{ ci_operational_status }}"
+        ip_address: "{{ cmdb_ci_ip if cmdb_ci_ip else omit }}"
+        other:
           fqdn: "{{ cmdb_ci_fqdn }}"
-          ip_address: "{{ cmdb_ci_ip | default(omit, true) }}"
-          os: "Linux Red Hat"
-          short_description: "RHEL 9 (AWS EC2 {{ cmdb_ci_instance | default('n/a', true) }}) — Lightspeed Patching demo"
-          operational_status: "1"
-      register: ci_created
+          model_number: "{{ cmdb_ci_size if cmdb_ci_size else omit }}"
+          assignment_group: "{{ ci_support_group }}"
+      register: ci_result
 
     - name: Resolve the host CI sys_id
       ansible.builtin.set_fact:
-        ci_sys_id: "{{ ci_lookup.record[0].sys_id if (ci_lookup.record | length > 0) else ci_created.record.sys_id }}"
+        ci_sys_id: "{{ ci_result.record.sys_id }}"
 
     # --- Relationship (create if missing) ------------------------------------
     - name: Check for an existing relationship
@@ -110,6 +117,52 @@
           parent: "{{ ci_sys_id }}"
           child: "{{ ba_sys_id }}"
           type: "{{ cmdb_rel_type }}"
+
+    # --- RITM linkage (ServiceNow-driven runs only) -------------------------
+    - name: Link CI to the originating RITM (Affected CIs)
+      when:
+        - ticket_number is defined
+        - ticket_number | string | length > 0
+      block:
+        - name: Use the threaded RITM sys_id when present
+          ansible.builtin.set_fact:
+            ritm_sys_id: "{{ ticket_sys_id }}"
+          when:
+            - ticket_sys_id is defined
+            - ticket_sys_id | string | length > 0
+
+        - name: Resolve the RITM sys_id by number (fallback)
+          when: ritm_sys_id is not defined
+          block:
+            - name: Query sc_req_item by number
+              register: ritm_lookup
+              servicenow.itsm.api_info:
+                resource: sc_req_item
+                sysparm_query: "numberSTARTSWITH{{ ticket_number }}"
+
+            - name: Fail clearly if the RITM was not found
+              ansible.builtin.assert:
+                that:
+                  - ritm_lookup.record | length > 0
+                fail_msg: "No sc_req_item matched number '{{ ticket_number }}'."
+
+            - name: Set sys_id from the lookup
+              ansible.builtin.set_fact:
+                ritm_sys_id: "{{ ritm_lookup.record[0].sys_id }}"
+
+        - name: Link the CI to the RITM via task_ci
+          servicenow.itsm.api:
+            action: post
+            resource: task_ci
+            data:
+              task: "{{ ritm_sys_id }}"
+              ci_item: "{{ ci_sys_id }}"
+
+    # --- Publish artifacts + summary -----------------------------------------
+    - name: Publish CI sys_id as a workflow artifact
+      ansible.builtin.set_stats:
+        data:
+          cmdb_ci_sys_id: "{{ ci_sys_id }}"
 
     - name: Summary
       ansible.builtin.debug:
