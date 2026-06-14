@@ -82,7 +82,7 @@
         resource: "{{ ci_resource }}"
         sys_id: "{{ ci_sys_id }}"
         data:
-          correlation_id: "{{ insights_uuid }}"
+          correlation_id: "insights_id: {{ insights_uuid }}"
 
     - name: Summary
       ansible.builtin.debug:
