@@ -16,6 +16,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   workflow where they belong. All RITM nodes no-op gracefully on manual AAP UI
   launches (no `ticket_number`).
 
+### Fixed (2026-06-14)
+
+- **`relate_cmdb_to_incident.yml`** — two ansible-lint failures: removed empty
+  `vars:` block (schema[playbook]: vars was null); renamed task to move Jinja
+  template to end of name string (name[template]).
+
 ### Added (2026-06-13)
 
 - **`jt_downgrade_kernel`** ("Lightspeed Patching - Downgrade Kernel") — new JT wrapping

@@ -72,9 +72,6 @@
         return_content: true
         validate_certs: true
         status_code: 200
-      vars:
-        # Insights matches on display_name which equals the registered FQDN
-        # Pass as a URL query parameter via the url itself to keep the task simple
       register: insights_inventory_resp_raw
       changed_when: false
 
@@ -144,7 +141,7 @@
         inc_sys_id: "{{ inc_lookup.record[0].sys_id }}"
 
     # ── Patch incident cmdb_ci ─────────────────────────────────────────────────
-    - name: Set cmdb_ci on {{ incident_number }} to CI {{ ci_name }}
+    - name: Patch incident cmdb_ci to {{ ci_name }}
       servicenow.itsm.api:
         action: patch
         resource: incident
