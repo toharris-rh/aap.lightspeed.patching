@@ -5,128 +5,87 @@
 # Stamps the Red Hat Insights inventory UUID into the CMDB CI's correlation_id
 # field, tying the ServiceNow CI back to its Insights record.
 #
-# Runs AFTER register_rhel (Insights registration) so the host exists in the
-# Insights inventory. The inventory record `id` can lag the first upload by a
-# few seconds, so the inventory lookup retries before giving up. If the host is
-# still not present, the play warns and exits successfully (does not fail the
-# workflow).
+# The UUID is read directly from /etc/insights-client/machine-id on the host
+# (written at Insights registration time), avoiding the need for Insights API
+# credentials. The ServiceNow PATCH is delegated to localhost.
 #
 # Consumed inputs (workflow artifacts / extra_vars):
-#   linux_fqdn / host_fqdn   public FQDN of the host (display_name in Insights)
 #   cmdb_ci_sys_id           CI sys_id (artifact from register_cmdb_and_relate);
 #                            falls back to a cmdb_ci_linux_server lookup by FQDN
 #
-# Credential: Lightspeed Patching - ServiceNow  (SN_* env vars)
-# Insights auth: INSIGHTS_CLIENT_ID / INSIGHTS_CLIENT_SECRET env vars
+# Credentials: Lightspeed Patching - ServiceNow  (SN_* env vars)
+#              Lightspeed Patching - Linux Machine (SSH to read machine-id)
 # ============================================================================
 
 - name: Stamp Insights inventory UUID into the CMDB CI correlation_id
-  hosts: localhost
-  connection: local
+  hosts: all
   gather_facts: false
+  become: true
 
   vars:
-    insights_sso_url: "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token"
-    insights_inventory_url: "{{ lookup('ansible.builtin.env', 'INSIGHTS_BASE_URL') | default('https://console.redhat.com', true) }}/api/inventory/v1/hosts"
     ci_resource: cmdb_ci_linux_server
-    host_fqdn: "{{ host_fqdn | default(linux_fqdn | default('')) }}"
 
   tasks:
-    - name: Require a host FQDN
+    - name: Read the Insights machine-id from the host
+      ansible.builtin.slurp:
+        src: /etc/insights-client/machine-id
+      register: machine_id_raw
+
+    - name: Store the Insights UUID
+      ansible.builtin.set_fact:
+        insights_uuid: "{{ (machine_id_raw.content | b64decode).strip() }}"
+
+    - name: Fail if machine-id is empty
       ansible.builtin.assert:
         that:
-          - host_fqdn | length > 0
-        fail_msg: "Provide host_fqdn=<fqdn> (or linux_fqdn)."
-
-    # ── Exchange service-account creds for an Insights bearer token ───────────
-    - name: Obtain Insights bearer token (client_credentials)
-      ansible.builtin.uri:
-        url: "{{ insights_sso_url }}"
-        method: POST
-        body_format: form-urlencoded
-        body:
-          grant_type: client_credentials
-          client_id: "{{ lookup('ansible.builtin.env', 'INSIGHTS_CLIENT_ID') }}"
-          client_secret: "{{ lookup('ansible.builtin.env', 'INSIGHTS_CLIENT_SECRET') }}"
-        status_code: 200
-        validate_certs: true
-      register: insights_token_resp
-      no_log: true
-
-    - name: Store bearer token
-      ansible.builtin.set_fact:
-        insights_bearer: "{{ insights_token_resp.json.access_token }}"
-      no_log: true
-
-    # ── Look up host in the Insights inventory (retry — upload can lag) ───────
-    - name: Query Insights inventory for {{ host_fqdn }}
-      ansible.builtin.uri:
-        url: "{{ insights_inventory_url }}?display_name={{ host_fqdn | urlencode }}"
-        method: GET
-        headers:
-          Authorization: "Bearer {{ insights_bearer }}"
-        return_content: true
-        validate_certs: true
-        status_code: 200
-      register: insights_inventory_resp
-      changed_when: false
-      until: insights_inventory_resp.json.total | int > 0
-      retries: 10
-      delay: 30
-
-    - name: Skip if host never appeared in Insights
-      when: insights_inventory_resp.json.total | int == 0
-      ansible.builtin.debug:
-        msg: >-
-          WARNING: '{{ host_fqdn }}' not found in Insights inventory after
-          retries — leaving correlation_id unset.
+          - insights_uuid | length > 0
+        fail_msg: >-
+          /etc/insights-client/machine-id is empty — is the host registered
+          with Insights?
 
     # ── Resolve CI sys_id, then patch correlation_id ─────────────────────────
-    - name: Set Insights UUID + correlation_id
-      when: insights_inventory_resp.json.total | int > 0
+    - name: Use the CI sys_id artifact when present
+      ansible.builtin.set_fact:
+        ci_sys_id: "{{ cmdb_ci_sys_id }}"
+      when:
+        - cmdb_ci_sys_id is defined
+        - cmdb_ci_sys_id | string | length > 0
+
+    - name: Resolve CI sys_id by FQDN (fallback)
+      when: ci_sys_id is not defined
+      delegate_to: localhost
+      become: false
       block:
-        - name: Store Insights inventory UUID
-          ansible.builtin.set_fact:
-            insights_uuid: "{{ insights_inventory_resp.json.results[0].id }}"
-
-        - name: Use the CI sys_id artifact when present
-          ansible.builtin.set_fact:
-            ci_sys_id: "{{ cmdb_ci_sys_id }}"
-          when:
-            - cmdb_ci_sys_id is defined
-            - cmdb_ci_sys_id | string | length > 0
-
-        - name: Resolve CI sys_id by FQDN (fallback)
-          when: ci_sys_id is not defined
-          block:
-            - name: Look up CI in {{ ci_resource }} by FQDN
-              servicenow.itsm.api_info:
-                resource: "{{ ci_resource }}"
-                sysparm_query: "fqdn={{ host_fqdn }}^ORname={{ host_fqdn }}"
-              register: ci_lookup
-
-            - name: Fail if no CMDB CI found for this host
-              ansible.builtin.assert:
-                that:
-                  - ci_lookup.record | length > 0
-                fail_msg: >-
-                  No CI found in {{ ci_resource }} for '{{ host_fqdn }}'.
-                  Run the 'Register CMDB CI' job template first.
-
-            - name: Set CI sys_id from the lookup
-              ansible.builtin.set_fact:
-                ci_sys_id: "{{ ci_lookup.record[0].sys_id }}"
-
-        - name: Stamp Insights inventory UUID into Correlation ID
-          servicenow.itsm.api:
-            action: patch
+        - name: Look up CI in {{ ci_resource }} by FQDN
+          servicenow.itsm.api_info:
             resource: "{{ ci_resource }}"
-            sys_id: "{{ ci_sys_id }}"
-            data:
-              correlation_id: "{{ insights_uuid }}"
+            sysparm_query: "fqdn={{ inventory_hostname }}^ORname={{ inventory_hostname }}"
+          register: ci_lookup
 
-        - name: Summary
-          ansible.builtin.debug:
-            msg: >-
-              CI {{ host_fqdn }} ({{ ci_sys_id }}) correlation_id set to
-              Insights UUID {{ insights_uuid }}.
+        - name: Fail if no CMDB CI found for this host
+          ansible.builtin.assert:
+            that:
+              - ci_lookup.record | length > 0
+            fail_msg: >-
+              No CI found in {{ ci_resource }} for '{{ inventory_hostname }}'.
+              Run the 'Register CMDB CI' job template first.
+
+        - name: Set CI sys_id from the lookup
+          ansible.builtin.set_fact:
+            ci_sys_id: "{{ ci_lookup.record[0].sys_id }}"
+
+    - name: Stamp Insights inventory UUID into Correlation ID
+      delegate_to: localhost
+      become: false
+      servicenow.itsm.api:
+        action: patch
+        resource: "{{ ci_resource }}"
+        sys_id: "{{ ci_sys_id }}"
+        data:
+          correlation_id: "{{ insights_uuid }}"
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg: >-
+          CI {{ inventory_hostname }} ({{ ci_sys_id }}) correlation_id set to
+          Insights UUID {{ insights_uuid }}.

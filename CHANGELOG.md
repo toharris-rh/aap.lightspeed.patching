@@ -14,10 +14,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     the host's canonical `fqdn` fact matches the AAP inventory name and the CMDB
     CI name.
   - New `playbooks/servicenow/update_cmdb_correlation_id.yml` stamps the Red Hat
-    Insights inventory UUID into the CMDB CI's `correlation_id` field (reusing
-    the Insights inventory lookup from `relate_cmdb_to_incident.yml`, with
-    retries since the inventory record can lag the first upload). Wired as a new
-    job template (`jt_snow_correlation_id`) and a workflow node that runs after
+    Insights inventory UUID into the CMDB CI's `correlation_id` field. Reads the
+    UUID directly from `/etc/insights-client/machine-id` on the host (via SSH),
+    eliminating the need for Insights API credentials. Wired as a new job
+    template (`jt_snow_correlation_id`) and a workflow node that runs after
     Register RHEL (parallel to Patch RHEL).
   - `register_cmdb_and_relate.yml` now sets the CI's `managed_by` to a real
     ServiceNow user, resolved from a `user_name` (`CMDB_MANAGED_BY` env var /

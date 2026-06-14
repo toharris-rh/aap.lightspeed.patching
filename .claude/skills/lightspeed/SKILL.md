@@ -163,14 +163,14 @@ creds come from env vars injected via a credential type (future) or extra_vars.
 
 ## Insights UUID → CMDB correlation_id
 
-The same inventory UUID is also stamped into the CMDB CI's `correlation_id` by
+The Insights `machine-id` (from `/etc/insights-client/machine-id` on the host)
+is stamped into the CMDB CI's `correlation_id` by
 `playbooks/servicenow/update_cmdb_correlation_id.yml` (CaC var:
 `jt_snow_correlation_id`), so the CI durably links back to its Insights record —
-not just into the incident work note. It runs in the Provision-and-Onboard
-workflow after Register RHEL (the CI is created early, before the host exists in
-Insights, so the UUID is filled in later). Same OAuth2 + `?display_name=<fqdn>`
-lookup as above, with `retries` since the inventory record can lag the first
-insights-client upload by a few seconds.
+not just into the incident work note. The playbook reads the UUID via SSH
+(slurp), so it needs the Linux Machine credential but **not** the Insights API
+credentials. It runs in the Provision-and-Onboard workflow after Register RHEL
+(parallel to Patch RHEL, terminal leaf).
 
 > The host's OS hostname is set to the public FQDN (`inventory_hostname`) in
 > `register_rhel.yml` **before** registration, so the Insights display-name, the
@@ -182,7 +182,7 @@ insights-client upload by a few seconds.
 |------|---------|
 | `playbooks/register_insights.yml` | Installs insights-client, registers with `--display-name` |
 | `playbooks/servicenow/relate_cmdb_to_incident.yml` | OAuth2 → inventory lookup → CMDB → incident cmdb_ci |
-| `playbooks/servicenow/update_cmdb_correlation_id.yml` | OAuth2 → inventory lookup → CMDB CI `correlation_id` |
+| `playbooks/servicenow/update_cmdb_correlation_id.yml` | SSH → read machine-id → CMDB CI `correlation_id` |
 | `aap_config/group_vars/all.yml` | `insights_client_id`, `insights_client_secret`, `insights_base_url` |
 | `aap_config/files/controller_job_templates.yml` | `jt_snow_relate_cmdb` JT definition |
 | `docs/dev-environment.sh` | `INSIGHTS_CLIENT_ID`, `INSIGHTS_CLIENT_SECRET` (gitignored) |

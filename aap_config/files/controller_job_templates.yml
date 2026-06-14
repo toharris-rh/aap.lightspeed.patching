@@ -95,17 +95,18 @@ controller_templates:
       cmdb_managed_by: "{{ cmdb_managed_by }}"
 
   # ── Stamp Insights UUID into CMDB correlation_id ─────────────────────────
-  # Runs after Register RHEL (Insights registration). Consumes the linux_fqdn
-  # and cmdb_ci_sys_id workflow artifacts. Insights API creds come from
-  # INSIGHTS_CLIENT_ID/SECRET env vars (same as jt_snow_relate_cmdb).
+  # Runs after Register RHEL (Insights registration). Reads the Insights UUID
+  # from /etc/insights-client/machine-id on the host (SSH), then PATCHes
+  # correlation_id on the CMDB CI via ServiceNow.
   - name: "{{ jt_snow_correlation_id }}"
     job_type: run
     organization: "{{ my_organization }}"
-    inventory: "{{ control_inventory_name }}"
+    inventory: "{{ inventory_name }}"
     project: "{{ project_name }}"
     playbook: playbooks/servicenow/update_cmdb_correlation_id.yml
     execution_environment: "{{ my_execution_environment }}"
     credentials:
+      - "{{ cred_linux }}"
       - "{{ cred_servicenow }}"
     ask_variables_on_launch: true
 
