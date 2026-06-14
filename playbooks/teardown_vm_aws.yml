@@ -2,37 +2,21 @@
 # ============================================================================
 # playbooks/teardown_vm_aws.yml
 # ============================================================================
-# Tears down the Lightspeed Patching demo VM:
-#   1. Unregisters the RHEL host from the Red Hat CDN AND Red Hat Insights
-#      (rhc state: absent) — while the host is still up.
-#   2. terraform destroy — removes the EC2 instance + VPC stack.
-#   3. Deregisters the host from the AAP lightspeed-patching inventory.
+# Destroys the Terraform-managed AWS infrastructure and deregisters the host
+# from the AAP lightspeed-patching inventory.
 #
-# Idempotent: if no VM / no Terraform state exists, the unregister play is
-# skipped (host unreachable) and destroy is a no-op — so the nightly 6 PM and
-# 10 PM schedules are safe to both fire.
+# This JT runs against the control inventory (lightspeed-patching-control),
+# NOT the host inventory. CDN/Insights unregistration is handled by the
+# separate Unregister RHEL JT, wired before this one in the Teardown workflow.
+#
+# Idempotent: if no VM / no Terraform state exists, destroy is a no-op — so
+# the nightly 6 PM and 10 PM schedules are safe to both fire.
 #
 # Required JT credentials:
 #   Lightspeed Patching - AWS         (AWS_* for terraform destroy)
-#   Lightspeed Patching - Linux Machine (SSH for the unregister play)
 #   Lightspeed Patching - Controller  (mint a token for inventory deregistration)
 # ============================================================================
 
-# --- Play 1: unregister on the host (best-effort; host may already be gone) ---
-- name: Unregister the RHEL host from the Red Hat CDN and Insights
-  hosts: all
-  gather_facts: false
-  become: true
-  ignore_unreachable: true   # already-destroyed host -> skip cleanly
-
-  tasks:
-    - name: Unregister from CDN + Insights (certified rhc role, state absent)
-      ansible.builtin.include_role:
-        name: redhat.rhel_system_roles.rhc
-      vars:
-        rhc_state: absent
-
-# --- Play 2: destroy the infra and deregister from AAP ---------------------
 - name: Tear down the AWS VM and deregister it from AAP
   hosts: localhost
   connection: local
@@ -81,8 +65,6 @@
           -var linux_admin_username={{ linux_admin_username | default('ec2-user') }}
         chdir: "{{ terraform_dir }}"
       environment:
-        # Same region/cred handling as the provision apply (the AWS credential
-        # injects the key/secret; providers.tf reads AWS_DEFAULT_REGION).
         AWS_DEFAULT_REGION: "{{ aws_region }}"
         TF_VAR_linux_ssh_public_key: "{{ linux_ssh_public_key }}"
       no_log: true
@@ -126,7 +108,7 @@
           register: inventory_hosts
           when: inventory_lookup.json.count > 0
 
-        - name: Delete every host in the inventory via REST (bypasses 'running jobs' lock)
+        - name: Delete every host in the inventory via REST
           ansible.builtin.uri:
             url: "{{ aap_hostname }}/api/controller/v2/hosts/{{ item.id }}/"
             method: DELETE

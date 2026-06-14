@@ -17,7 +17,12 @@
 #           └─►failure─► SNow Create INC (failure)
 #                          └─►always─► SNow Update RITM (failure)
 #
-# ── Workflow 2: Remediate CVE ─────────────────────────────────────────────────
+# ── Workflow 2: Teardown ──────────────────────────────────────────────────
+#
+#   Unregister RHEL (CDN + Insights, best-effort)
+#     └─►always─► Teardown VM (terraform destroy + inventory cleanup)
+#
+# ── Workflow 3: Remediate CVE ─────────────────────────────────────────────────
 #
 #   SNow INC from Insights (via EDA Business Rule)
 #     └─► SNow Notice Started [parallel]
@@ -97,6 +102,18 @@ controller_workflows:
 
       - identifier: snow_update_ritm_failure
         unified_job_template: "{{ jt_snow_update_ritm_failure }}"
+
+  - name: "{{ workflow_teardown_name }}"
+    organization: "{{ my_organization }}"
+    inventory: "{{ inventory_name }}"
+    simplified_workflow_nodes:
+      - identifier: unregister_rhel
+        unified_job_template: "{{ jt_unregister_rhel }}"
+        always_nodes:
+          - teardown_vm
+
+      - identifier: teardown_vm
+        unified_job_template: "{{ jt_teardown }}"
 
   - name: "{{ workflow_remediate_name }}"
     organization: "{{ my_organization }}"
