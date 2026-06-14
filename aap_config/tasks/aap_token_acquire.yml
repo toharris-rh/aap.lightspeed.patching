@@ -1,11 +1,17 @@
 ---
+# Sets `lsp_cac_token` with a usable AAP API token (supplied or freshly minted).
+# Do NOT name this fact `aap_token`: the "Red Hat Ansible Automation Platform"
+# credential type injects `aap_token: "{{oauth_token}}"` as an EXTRA VAR, which
+# is empty when the credential has no OAuth token. Extra vars outrank set_fact,
+# so an `aap_token` fact would be silently shadowed by that empty value and any
+# Bearer auth using it would 401. See issue #61.
 - name: Detect a user-supplied AAP_TOKEN
   ansible.builtin.set_fact:
     cac_token_env: "{{ lookup('ansible.builtin.env', 'AAP_TOKEN') | default('', true) }}"
 
 - name: Use the supplied AAP_TOKEN as-is
   ansible.builtin.set_fact:
-    aap_token: "{{ cac_token_env }}"
+    lsp_cac_token: "{{ cac_token_env }}"
     cac_token_minted: false
   when: cac_token_env | length > 0
 
@@ -23,7 +29,7 @@
 
 - name: Adopt the minted token
   ansible.builtin.set_fact:
-    aap_token: "{{ cac_token.ansible_facts.aap_token.token }}"
+    lsp_cac_token: "{{ cac_token.ansible_facts.aap_token.token }}"
     cac_token_minted: true
     cac_token_obj: "{{ cac_token.ansible_facts.aap_token }}"
   when: cac_token_env | length == 0

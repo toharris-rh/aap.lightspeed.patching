@@ -7,6 +7,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed (2026-06-14)
 
+- **Teardown inventory cleanup 401 — rename `aap_token` fact to `lsp_cac_token`**
+  (issue #61). The *Red Hat Ansible Automation Platform* credential type injects
+  `aap_token: "{{oauth_token}}"` as an **extra var** (empty when the credential
+  carries no OAuth token). Extra vars outrank `set_fact`, so the token minted in
+  `aap_token_acquire.yml` was silently shadowed by that empty value and the
+  teardown's `Bearer` inventory-lookup calls 401'd ("credentials were not
+  provided"). Renamed the internal fact to `lsp_cac_token` in
+  `aap_token_acquire.yml`, `teardown_vm_aws.yml`, and `provision_vm_aws.yml`,
+  with a comment guarding against reuse of the reserved name. (Previously masked
+  by the `//api/` trailing-slash 404 until that was fixed.)
+
 - **Repair the CI lint gate** (issue #58). `ansible-lint --offline` had failed
   on every run since #44 — including on `main` — because
   `servicenow.itsm.configuration_item` was used without a matching entry in
