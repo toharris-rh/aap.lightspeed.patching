@@ -16,6 +16,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   workflow where they belong. All RITM nodes no-op gracefully on manual AAP UI
   launches (no `ticket_number`).
 
+### Added (2026-06-14)
+
+- **`.claude/skills/lightspeed-snow-setup/SKILL.md`** — new Claude skill for
+  SEs configuring the native Lightspeed / Insights → ServiceNow integration
+  (Flow Templates for Red Hat Insights app, no AAP/EDA): shared-instance model,
+  the one fixed integration user, console.redhat.com wizard steps, test/verify,
+  and troubleshooting table. Added to skills table in `CLAUDE.md`.
+
 ### Changed (2026-06-14)
 
 - **`introduce_cve.yml`** — integrated kernel-downgrade logic directly into the

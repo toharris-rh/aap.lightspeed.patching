@@ -22,6 +22,7 @@ Load the relevant skill before working in its area:
 | [`.claude/skills/execution-environment/SKILL.md`](.claude/skills/execution-environment/SKILL.md) | Build / version / update the custom EE (terraform + certified collections) and ship it quay→PAH→Controller; build gotchas and the immutable-semver update model |
 | [`.claude/skills/terraform/SKILL.md`](.claude/skills/terraform/SKILL.md) | The `terraform/` AWS provisioning (VPC + RHEL9 EC2, S3 state, t-shirt sizing), how `provision_vm_aws.yml` runs it from AAP, and the region/cred/EE gotchas |
 | [`.claude/skills/lightspeed/SKILL.md`](.claude/skills/lightspeed/SKILL.md) | Red Hat Insights / Lightspeed API — OAuth2 service-account auth, Insights inventory + vulnerability endpoints, the `--display-name` hostname requirement, console.redhat.com RBAC roles, and the CVE→Insights→CMDB→incident linking pattern |
+| [`.claude/skills/lightspeed-snow-setup/SKILL.md`](.claude/skills/lightspeed-snow-setup/SKILL.md) | SE setup guide for the native Lightspeed / Insights → ServiceNow integration (Flow Templates for Red Hat Insights app) — shared-instance model, the one fixed integration user, console.redhat.com wizard, and test/verify steps |
 | [`.claude/skills/vm-access/SKILL.md`](.claude/skills/vm-access/SKILL.md) | SSH into provisioned VMs — AAP inventory lookup (gateway API path), host record parsing, SSH credentials and common health checks |
 
 When you add a new skill, add a row here so future sessions discover it.
