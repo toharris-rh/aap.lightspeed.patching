@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (2026-06-14)
+
+- **Pin Terraform RHEL AMI lookup to 9.8** (issue #54). `terraform/data.tf`
+  used `RHEL-9.*` with `most_recent = true`, which sorts by image creation
+  date, not version. Red Hat's regular EUS rebuilds (e.g. 9.4) are often dated
+  newer than the latest GA minor, so the lookup silently drifted to 9.4 instead
+  of 9.8. Narrowed the name filter to `RHEL-9.8*` so the minor is stable while
+  still picking up the newest 9.8 build.
+
 ### Changed (2026-06-14)
 
 - **Disable `scm_update_on_launch`** on the Lightspeed Patching project.
