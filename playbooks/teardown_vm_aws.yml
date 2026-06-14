@@ -110,7 +110,7 @@
             url: "{{ aap_hostname }}/api/controller/v2/inventories/?name={{ lsp_inventory | urlencode }}"
             method: GET
             headers:
-              Authorization: "Bearer {{ aap_token }}"
+              Authorization: "Bearer {{ lsp_cac_token }}"
             validate_certs: "{{ aap_validate_certs }}"
             status_code: 200
           register: inventory_lookup
@@ -120,7 +120,7 @@
             url: "{{ aap_hostname }}/api/controller/v2/hosts/?inventory={{ inventory_lookup.json.results[0].id }}"
             method: GET
             headers:
-              Authorization: "Bearer {{ aap_token }}"
+              Authorization: "Bearer {{ lsp_cac_token }}"
             validate_certs: "{{ aap_validate_certs }}"
             status_code: 200
           register: inventory_hosts
@@ -131,7 +131,7 @@
             url: "{{ aap_hostname }}/api/controller/v2/hosts/{{ item.id }}/"
             method: DELETE
             headers:
-              Authorization: "Bearer {{ aap_token }}"
+              Authorization: "Bearer {{ lsp_cac_token }}"
             validate_certs: "{{ aap_validate_certs }}"
             status_code: [204, 404]
           loop: "{{ inventory_hosts.json.results | default([]) }}"
