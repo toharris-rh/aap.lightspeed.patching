@@ -7,6 +7,45 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added (2026-06-13)
 
+### Changed (2026-06-13)
+
+- **`register_rhel.yml`** — merged `register_insights.yml` into a single play:
+  CDN registration (rhc role) followed immediately by `insights-client --register
+  --display-name={{ inventory_hostname }}` + initial check-in. Eliminates one
+  workflow node; `register_insights.yml` remains as a standalone playbook/JT for
+  targeted re-registration but is no longer in the workflow.
+- **"Provision and Onboard" workflow** — removed `register_insights` node; wired
+  `patch_rhel` success directly to `snow_update_inc_success`. Combined snow_log
+  work note covers both CDN and Insights registration in one message.
+
+### Fixed (2026-06-13)
+
+- **`notice_patch_started.yml`** — hard `assert` on `change_request_sys_id`
+  caused the "Provision and Onboard" workflow to fail when no preceding
+  `create_change_request` node ran. Replaced with a `when:` guard so the play
+  is a no-op (debug message only) when no CHG sys_id is threaded, matching the
+  `snow_log` role pattern.
+
+### Added (2026-06-13)
+
+- **`.claude/skills/lightspeed/SKILL.md`** — new Claude skill covering the Red
+  Hat Insights / Lightspeed API integration: OAuth2 client_credentials auth,
+  Insights inventory + vulnerability endpoints, `--display-name` hostname
+  requirement, console.redhat.com RBAC roles, and the CVE→CMDB→incident linking
+  pattern. Added to the skills table in `CLAUDE.md`.
+- **`playbooks/servicenow/relate_cmdb_to_incident.yml`** — scoped to a single
+  provisioned host: exchanges Insights service-account credentials (OAuth2
+  `client_credentials`) for a bearer token, looks up the host in the Insights
+  inventory to confirm registration and capture the system UUID, resolves the
+  host's CI in `cmdb_ci_linux_server`, patches the incident's `cmdb_ci` field,
+  and appends a work note with the Insights UUID + CI sys_id. New JT
+  **"Lightspeed Patching - SNow Relate CMDB CI to Incident"** with a three-field
+  survey (incident number, host FQDN, CVE ID). New `jt_snow_relate_cmdb` var in
+  `group_vars/all.yml`; `INSIGHTS_CLIENT_ID` / `INSIGHTS_CLIENT_SECRET`
+  (`insights_client_id` / `insights_client_secret`) added to group_vars.
+
+### Added (2026-06-13)
+
 - **CI lint gate** — `.github/workflows/lint.yml` runs `yamllint` +
   `ansible-lint --offline` on PRs and pushes to `main`. `.ansible-lint` config
   (basic profile; skips the intentional patching/CVE-demo patterns, no secrets).
