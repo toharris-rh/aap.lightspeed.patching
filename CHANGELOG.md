@@ -109,6 +109,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   workflow where they belong. All RITM nodes no-op gracefully on manual AAP UI
   launches (no `ticket_number`).
 
+### Changed (2026-06-14)
+
+- **`introduce_cve.yml`** — switched from kernel downgrade (reboot required) to
+  userspace package downgrade; defaults to `openssl-1:3.5.5-2.el9_8`. No reboot
+  or grubby changes needed. Survey updated: `target_package` + `target_version`
+  replace `target_kernel`.
+
 ### Added (2026-06-14)
 
 - **`.claude/skills/lightspeed-snow-setup/SKILL.md`** — new Claude skill for
