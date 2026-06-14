@@ -89,6 +89,7 @@ controller_templates:
     execution_environment: "{{ my_execution_environment }}"
     credentials:
       - "{{ cred_servicenow }}"
+    ask_variables_on_launch: true
     extra_vars:
       cmdb_business_app: "{{ cmdb_business_app }}"
 

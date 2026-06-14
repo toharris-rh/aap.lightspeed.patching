@@ -7,12 +7,12 @@
 #     └─► SNow Notice Provision Started (RITM) [parallel]
 #     └─► Provision VM (AWS Terraform)
 #           └─►success─► Configure MOTD (banner + motd)
-#                          └─► Register RHEL (CDN + Insights in one play)
-#                                └─► Register CMDB CI
-#                                      └─► Patch RHEL (full)
-#                                            └─►success─► SNow Update RITM (success)
-#                                            └─►failure─► SNow Create INC (failure)
-#                                                           └─►always─► SNow Update RITM (failure)
+#           │              └─► Register RHEL (CDN + Insights in one play)
+#           │                    └─► Patch RHEL (full)
+#           │                          └─►success─► SNow Update RITM (success)
+#           │                          └─►failure─► SNow Create INC (failure)
+#           │                                         └─►always─► SNow Update RITM (failure)
+#           └─►success─► Register CMDB CI  [parallel, terminal leaf]
 #           └─►failure─► SNow Create INC (failure)
 #                          └─►always─► SNow Update RITM (failure)
 #
@@ -53,6 +53,7 @@ controller_workflows:
         unified_job_template: "{{ jt_provision }}"
         success_nodes:
           - configure_motd
+          - register_cmdb
         failure_nodes:
           - snow_create_inc_provision_fail
 
@@ -64,12 +65,10 @@ controller_workflows:
       - identifier: register_rhel
         unified_job_template: "{{ jt_register_rhel }}"
         success_nodes:
-          - register_cmdb
+          - patch_rhel
 
       - identifier: register_cmdb
         unified_job_template: "{{ jt_register_cmdb }}"
-        success_nodes:
-          - patch_rhel
 
       - identifier: patch_rhel
         unified_job_template: "{{ jt_patch_rhel }}"
