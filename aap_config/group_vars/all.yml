@@ -71,6 +71,13 @@ servicenow_password: "{{ lookup('ansible.builtin.env', 'SN_PASSWORD') }}"
 # Generate: openssl rand -hex 32
 eda_event_stream_token: "{{ lookup('ansible.builtin.env', 'EDA_EVENT_STREAM_TOKEN') }}"
 
+# Bearer token for the native Insights → EDA event stream — matched pair: same
+# value in the AAP Insights event-stream credential AND in the console.redhat.com
+# "Event-Driven Ansible" integration's Authorization header. Defaults to the
+# ServiceNow token so the stream loads out-of-box; set INSIGHTS_EDA_TOKEN for a
+# dedicated secret. Generate: openssl rand -hex 32
+eda_insights_event_stream_token: "{{ lookup('ansible.builtin.env', 'INSIGHTS_EDA_TOKEN') | default(eda_event_stream_token, true) }}"
+
 # Red Hat service-account creds for Automation Analytics / Insights — feed the
 # Automation Calculator on console.redhat.com (consumed by
 # files/controller_settings.yml). These are console.redhat.com SERVICE ACCOUNT
@@ -94,6 +101,12 @@ eda_event_stream_name: "Lightspeed Patching - ServiceNow Event Stream"
 eda_scm_credential: "Lightspeed Patching - EDA Source Control"
 eda_catalog_activation_name: "Lightspeed Patching - Catch SNow Catalog Orders"
 eda_incident_activation_name: "Lightspeed Patching - Catch SNow Incidents"
+# Native Red Hat Insights -> EDA path (console.redhat.com "Event-Driven Ansible"
+# integration). Dedicated event stream + bearer credential, distinct from the
+# ServiceNow stream above. Launches the Automated CVE Remediation workflow.
+eda_insights_activation_name: "Lightspeed Patching - Catch Insights CVE Events"
+eda_insights_event_stream_name: "Lightspeed Patching - Insights Event Stream"
+eda_insights_event_stream_credential: "Lightspeed Patching - Insights Event Stream"
 eda_decision_environment: "{{ lookup('ansible.builtin.env', 'LIGHTSPEED_EDA_DE') | default('Default Decision Environment', true) }}"
 
 # The ServiceNow catalog item short_description — EDA rulebook matches on this
@@ -118,6 +131,8 @@ control_inventory_name: "lightspeed-patching-control"
 workflow_provision_name: "Lightspeed Patching - Provision and Onboard"
 workflow_teardown_name: "Lightspeed Patching - Teardown"
 workflow_remediate_name: "Lightspeed Patching - Remediate CVE Workflow"
+# Auditable automated CVE remediation (native Insights -> EDA push trigger).
+workflow_cve_remediation_name: "Lightspeed Patching - Automated CVE Remediation"
 
 cred_aws: "Lightspeed Patching - AWS"
 cred_linux: "Lightspeed Patching - Linux Machine"

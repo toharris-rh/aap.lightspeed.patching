@@ -5,6 +5,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-06-14)
+
+- **Native Red Hat Insights → EDA CVE trigger (Phase 1, slice 1)** — new
+  `rulebooks/insights_vulnerability_events.yml` listens for Insights
+  vulnerability events (`application == "vulnerability"`, event types
+  `new-cve-cvss` / `new-cve-severity` / `new-cve-security-rule` /
+  `any-cve-known-exploit`) pushed via the console.redhat.com "Event-Driven
+  Ansible" integration, and launches the `Lightspeed Patching - Automated CVE
+  Remediation` workflow.
+  - New standalone EDA **event stream** `Lightspeed Patching - Insights Event
+    Stream` + a `Token Event Stream` credential of the same name
+    (`aap_config/files/eda_event_streams.yml`, `eda_credentials.yml`). Creating
+    it needs no activation, so `load.yml` provisions it and AAP exposes the
+    URL + token to paste into the Insights integration; received events become
+    visible there for capturing the real payload.
+  - Added `INSIGHTS_EDA_TOKEN` (optional; defaults to `EDA_EVENT_STREAM_TOKEN`)
+    to `docs/dev-environment.sh.example`, and the `eda_insights_*` /
+    `workflow_cve_remediation_name` names + token binding to `group_vars/all.yml`.
+  - The rulebook **activation** and the **workflow object** are wired in later
+    slices (they depend on the remediation JTs). The exact payload envelope is
+    flagged for live verification in the rulebook header.
+
 ### Fixed (2026-06-14)
 
 - **Register CMDB CI no longer fails with a recursive template loop** (issue

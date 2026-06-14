@@ -8,3 +8,16 @@ eda_event_streams:
     credential_name: "{{ eda_snow_event_stream_credential }}"
     event_stream_type: "ServiceNow"
     organization: "{{ my_organization }}"
+
+  # Native Red Hat Insights → EDA. Standalone stream (no activation required to
+  # create it): load.yml creates it and AAP exposes a URL + token to paste into
+  # the console.redhat.com "Event-Driven Ansible" integration. Received events
+  # are visible on the event stream so we can capture the real payload and pin
+  # the rulebook condition. The activation that consumes it is wired later, once
+  # the Automated CVE Remediation workflow exists.
+  # NOTE: event_stream_type is informational — the infra role ignores it; the
+  # stream's auth derives from the Token Event Stream credential (bearer token).
+  - name: "{{ eda_insights_event_stream_name }}"
+    credential_name: "{{ eda_insights_event_stream_credential }}"
+    event_stream_type: "Token"
+    organization: "{{ my_organization }}"

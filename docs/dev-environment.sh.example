@@ -67,6 +67,13 @@ export CMDB_MANAGED_BY="hercules"
 # Generate: openssl rand -hex 32
 export EDA_EVENT_STREAM_TOKEN=""
 
+# Bearer token for the native Red Hat Insights → EDA event stream (matched pair
+# — same value in the AAP Insights event-stream credential AND the
+# console.redhat.com "Event-Driven Ansible" integration Authorization header).
+# Optional: if unset, the Insights stream reuses EDA_EVENT_STREAM_TOKEN.
+# Generate: openssl rand -hex 32
+export INSIGHTS_EDA_TOKEN=""
+
 # ============================================================================
 # Red Hat Insights / Hybrid Cloud Console
 # Needed if calling the Insights API directly (e.g. triggering a scan).
