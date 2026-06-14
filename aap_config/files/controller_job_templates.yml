@@ -118,20 +118,8 @@ controller_templates:
       - "{{ cred_servicenow }}"
     ask_limit_on_launch: true
 
-  # ── Demo Setup: Introduce CVE ──────────────────────────────────────────────
+  # ── Demo Setup: Introduce CVE (downgrade kernel to vulnerable NVR) ─────────
   - name: "{{ jt_introduce_cve }}"
-    job_type: run
-    organization: "{{ my_organization }}"
-    inventory: "{{ inventory_name }}"
-    project: "{{ project_name }}"
-    playbook: playbooks/introduce_cve.yml
-    execution_environment: "{{ my_execution_environment }}"
-    credentials:
-      - "{{ cred_linux }}"
-    ask_limit_on_launch: true
-
-  # ── Downgrade kernel ───────────────────────────────────────────────────────
-  - name: "{{ jt_downgrade_kernel }}"
     job_type: run
     organization: "{{ my_organization }}"
     inventory: "{{ inventory_name }}"
@@ -144,7 +132,7 @@ controller_templates:
     survey_enabled: true
     survey_spec:
       name: ""
-      description: "Downgrade kernel to a specific NVR"
+      description: "Downgrade kernel to a specific vulnerable NVR"
       spec:
         - question_name: Target kernel NVR
           question_description: "Kernel version to install and boot (without arch suffix)"

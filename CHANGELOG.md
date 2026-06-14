@@ -16,6 +16,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   workflow where they belong. All RITM nodes no-op gracefully on manual AAP UI
   launches (no `ticket_number`).
 
+### Changed (2026-06-14)
+
+- **`jt_introduce_cve`** ("Lightspeed Patching - Introduce CVE (Demo Setup)") —
+  switched playbook from `introduce_cve.yml` to `downgrade_kernel.yml`; added
+  survey for `target_kernel` (default `5.14.0-427.40.1.el9_4`). Removed the
+  now-redundant `jt_downgrade_kernel` JT and its `group_vars` variable.
+
 ### Fixed (2026-06-14)
 
 - **`relate_cmdb_to_incident.yml`** — two ansible-lint failures: removed empty
