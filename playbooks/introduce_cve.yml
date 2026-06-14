@@ -2,63 +2,59 @@
 # ============================================================================
 # playbooks/introduce_cve.yml — DEMO SETUP ONLY
 # ============================================================================
-# Downgrades a package to a version with a known CVE so Red Hat Insights
-# will detect it and create a ServiceNow INC ticket via the native integration.
-#
-# ⚠️  Tony (Phase 5): fill in the target package and downrev version.
-#     Choose a package that:
-#       1. Has a known RHSA that Insights reports quickly
-#       2. Is available in an older version via CDN
-#       3. Does not break the host when downgraded
-#     Suggestions to evaluate:
-#       - openssl (frequent CVEs, fast Insights detection)
-#       - curl
-#       - bind-utils
+# Downgrades the kernel to a specific NVR so Red Hat Insights will detect
+# the advisory and create a ServiceNow INC ticket via the EDA integration.
 #
 # After running this playbook:
 #   insights-client --check-results  (or wait for next scheduled check-in)
 #   → Insights detects the advisory
-#   → ServiceNow INC created (native integration)
 #   → EDA fires → remediate_cve.yml runs → INC closed
+#
+# Inputs (via survey or extra_vars):
+#   target_kernel   kernel NVR without arch suffix
+#                   (default: 5.14.0-427.40.1.el9_4)
+#
+# Credentials: Lightspeed Patching - Linux Machine (SSH)
 # ============================================================================
 
-- name: Introduce a known CVE for demo purposes
+- name: Introduce a known CVE for demo purposes (kernel downgrade)
   hosts: all
-  gather_facts: false
+  gather_facts: true
   become: true
 
   vars:
-    # TODO (Tony - Phase 5): set these
-    demo_package: ""          # e.g. openssl
-    demo_downrev_version: ""  # e.g. 3.0.7-18.el9_2
-    demo_advisory_id: ""      # e.g. RHSA-2024:1234
+    target_kernel: "5.14.0-427.40.1.el9_4"
 
   tasks:
-    - name: Assert demo package vars are set
-      ansible.builtin.assert:
-        that:
-          - demo_package | length > 0
-          - demo_downrev_version | length > 0
-        fail_msg: "Set demo_package and demo_downrev_version before running this playbook."
-
-    - name: "Downgrade the demo package to its pinned downrev: {{ demo_package ~ '-' ~ demo_downrev_version }}"
+    - name: Install target kernel version
       ansible.builtin.dnf:
-        name: "{{ demo_package }}-{{ demo_downrev_version }}"
+        name: "kernel-{{ target_kernel }}"
         state: present
-        allow_downgrade: true
+      register: dnf_result
 
-    - name: Confirm installed version
+    - name: Set target kernel as default boot entry
       ansible.builtin.command:
-        cmd: "rpm -q {{ demo_package }}"
-      register: rpm_query
+        cmd: "grubby --set-default /boot/vmlinuz-{{ target_kernel }}.{{ ansible_architecture }}"
+      changed_when: true
+
+    - name: Reboot into target kernel
+      ansible.builtin.reboot:
+        reboot_timeout: 300
+
+    - name: Gather facts after reboot
+      ansible.builtin.setup:
+
+    - name: Verify running kernel
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: running kernel {{ ansible_kernel }}"
+
+    - name: Update subscription-manager facts
+      ansible.builtin.command:
+        cmd: subscription-manager facts --update
       changed_when: false
 
-    - name: Show installed version
-      ansible.builtin.debug:
-        msg: "{{ rpm_query.stdout }} — CVE now present. Run insights-client --check-results to trigger detection."
-
-    - name: Trigger Insights check-in immediately
+    - name: Run insights-client
       ansible.builtin.command:
-        cmd: insights-client --check-results
+        cmd: insights-client
       changed_when: false
       failed_when: false
