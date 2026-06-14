@@ -5,6 +5,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-06-14)
+
+- **Consistent hostnames + Insights UUID + Managed-by across Insights / AAP /
+  CMDB** (issue #76).
+  - `register_rhel.yml` now sets the OS hostname to the public FQDN
+    (`inventory_hostname`) as Step 0, before CDN and Insights registration, so
+    the host's canonical `fqdn` fact matches the AAP inventory name and the CMDB
+    CI name.
+  - New `playbooks/servicenow/update_cmdb_correlation_id.yml` stamps the Red Hat
+    Insights inventory UUID into the CMDB CI's `correlation_id` field (reusing
+    the Insights inventory lookup from `relate_cmdb_to_incident.yml`, with
+    retries since the inventory record can lag the first upload). Wired as a new
+    job template (`jt_snow_correlation_id`) and a workflow node that runs after
+    Register RHEL (parallel to Patch RHEL).
+  - `register_cmdb_and_relate.yml` now sets the CI's `managed_by` to a real
+    ServiceNow user, resolved from a `user_name` (`CMDB_MANAGED_BY` env var /
+    `cmdb_managed_by`, default `hercules`) via a `sys_user` lookup.
+  - Added `CMDB_MANAGED_BY` to `docs/dev-environment.sh.example` and
+    `cmdb_managed_by` to `aap_config/group_vars/all.yml`.
+
 ### Changed (2026-06-14)
 
 - **lightspeed-snow-setup skill — verification + segregation learnings**.

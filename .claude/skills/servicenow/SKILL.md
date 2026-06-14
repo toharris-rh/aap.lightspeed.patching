@@ -79,6 +79,8 @@ All in `docs/dev-environment.sh` (gitignored). Template:
 | `playbooks/servicenow/notice_patch_started.yml` | CHG → Implement + live AAP link |
 | `playbooks/servicenow/update_change_request.yml` | Close CHG (success) / Cancel (failure) |
 | `playbooks/servicenow/update_cmdb_patch_status.yml` | Update CI `install_date` (last patched) |
+| `playbooks/servicenow/register_cmdb_and_relate.yml` | Create/upsert the `cmdb_ci_linux_server` CI, relate it to the Business App, set `managed_by` (from `cmdb_managed_by` user_name) |
+| `playbooks/servicenow/update_cmdb_correlation_id.yml` | Stamp the Insights inventory UUID into the CI's `correlation_id` (after registration) |
 | `playbooks/servicenow/create_incident.yml` | Open INC on patch failure |
 | `playbooks/servicenow/update_incident.yml` | Update/resolve INC (in_progress / success / failure) |
 | `playbooks/roles/snow_log/` | Real-time per-host work notes during patching |
@@ -102,6 +104,21 @@ All in `docs/dev-environment.sh` (gitignored). Template:
 
 All consume `SN_*` env vars from the `Lightspeed Patching - ServiceNow`
 credential (ServiceNow ITSM Credential type) automatically.
+
+## CMDB CI fields (`cmdb_ci_linux_server`)
+
+`register_cmdb_and_relate.yml` upserts the CI via `servicenow.itsm.configuration_item`.
+Beyond name/IP/serial it sets two ownership/linking fields:
+
+- **`managed_by`** — a reference to `sys_user`. The playbook resolves
+  `cmdb_managed_by` (a ServiceNow **user_name**, from the `CMDB_MANAGED_BY` env
+  var, default `hercules`) to a sys_id via a `sys_user` lookup, then passes it in
+  the `other:` dict. Unknown user_name → left unset (warns). Known IDs:
+  `hercules` (Eric Ames), `toharris` (Tony Harris).
+- **`correlation_id`** — the Red Hat Insights **inventory UUID**. Set separately
+  by `update_cmdb_correlation_id.yml` *after* Insights registration (the CI is
+  created early, before the host exists in Insights), so the CMDB record links
+  back to its Insights inventory entry.
 
 ## Common tasks
 

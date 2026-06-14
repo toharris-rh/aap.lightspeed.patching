@@ -105,6 +105,12 @@ my_snow_catalog_short_description: "Lightspeed Patching - Request RHEL VM"
 # Dedicated to this demo — distinct from the shared "Ansible Demonstrations" app.
 cmdb_business_app: "Lightspeed Patching Demo"
 
+# ServiceNow user (user_name) recorded as 'Managed by' on CMDB CIs.
+# Resolved to a sys_user sys_id at runtime by register_cmdb_and_relate.yml.
+# Override locally via CMDB_MANAGED_BY (docs/dev-environment.sh); defaults to
+# 'hercules' so workflow runs stay green even when the env var is unset.
+cmdb_managed_by: "{{ lookup('ansible.builtin.env', 'CMDB_MANAGED_BY') | default('hercules', true) }}"
+
 # --- AAP object names (namespace: "Lightspeed Patching -") -------------------
 project_name: "Lightspeed Patching"
 inventory_name: "lightspeed-patching"
@@ -135,6 +141,7 @@ jt_snow_update_inc: "Lightspeed Patching - SNow Update Incident"
 jt_snow_close_inc: "Lightspeed Patching - SNow Close Incident"
 jt_snow_create_inc: "Lightspeed Patching - SNow Create Incident (failure)"
 jt_snow_relate_cmdb: "Lightspeed Patching - SNow Relate CMDB CI to Incident"
+jt_snow_correlation_id: "Lightspeed Patching - SNow Stamp Correlation ID"
 
 # Nightly teardown schedule names (controller_schedules.yml) — 6 PM + 10 PM.
 teardown_schedule_name: "Lightspeed Patching - Nightly Teardown 6 PM"
