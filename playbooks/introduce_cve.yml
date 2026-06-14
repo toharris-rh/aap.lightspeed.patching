@@ -5,8 +5,6 @@
 # Downgrades a userspace package to a version with a known CVE so Red Hat
 # Insights will detect the advisory and trigger the remediation workflow.
 #
-# No reboot required — userspace packages take effect immediately.
-#
 # After running this playbook:
 #   insights-client runs automatically at the end of this play.
 #   → Insights detects the advisory
