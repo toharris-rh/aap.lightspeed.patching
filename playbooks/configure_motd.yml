@@ -23,3 +23,19 @@
         owner: root
         group: root
         mode: "0644"
+
+    - name: Enable the sshd pre-login banner (/etc/issue.net)
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/99-lightspeed-banner.conf
+        content: "Banner /etc/issue.net\n"
+        owner: root
+        group: root
+        mode: "0644"
+        validate: "sshd -t -f %s"
+      notify: Reload sshd
+
+  handlers:
+    - name: Reload sshd
+      ansible.builtin.service:
+        name: sshd
+        state: reloaded
