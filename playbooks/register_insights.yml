@@ -20,9 +20,9 @@
         name: insights-client
         state: present
 
-    - name: Register with Insights
+    - name: Register with Insights (display-name set to public FQDN)
       ansible.builtin.command:
-        cmd: insights-client --register
+        cmd: "insights-client --register --display-name={{ inventory_hostname }}"
       register: insights_reg
       changed_when: "'Successfully registered' in insights_reg.stdout"
       failed_when: insights_reg.rc != 0 and 'already registered' not in insights_reg.stdout

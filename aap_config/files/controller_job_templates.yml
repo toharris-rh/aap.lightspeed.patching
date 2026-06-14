@@ -162,3 +162,37 @@ controller_templates:
     execution_environment: "{{ my_execution_environment }}"
     credentials:
       - "{{ cred_servicenow }}"
+
+  # ── CMDB CI → Incident (Insights-scoped to provisioned host) ─────────────
+  - name: "{{ jt_snow_relate_cmdb }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ control_inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/servicenow/relate_cmdb_to_incident.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_servicenow }}"
+    survey_enabled: true
+    survey_spec:
+      name: ""
+      description: "Link a provisioned host's CMDB CI to a ServiceNow incident"
+      spec:
+        - question_name: Incident Number
+          question_description: "ServiceNow incident to update (e.g. INC0011410)"
+          variable: incident_number
+          type: text
+          required: true
+          default: ""
+        - question_name: Host FQDN
+          question_description: "FQDN of the provisioned host to scope patching to"
+          variable: host_fqdn
+          type: text
+          required: true
+          default: ""
+        - question_name: CVE ID
+          question_description: "CVE being addressed (informational, added to work note)"
+          variable: cve_id
+          type: text
+          required: false
+          default: ""

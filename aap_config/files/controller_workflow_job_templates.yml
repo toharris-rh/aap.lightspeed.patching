@@ -6,11 +6,10 @@
 #   SNow catalog order (via EDA)
 #     └─► SNow Notice Started [parallel]
 #     └─► Provision VM (AWS Terraform)
-#           └─►success─► Register RHEL (CDN)
+#           └─►success─► Register RHEL (CDN + Insights in one play)
 #                          └─► Patch RHEL (full)
-#                                └─► Register Insights
-#                                      └─►success─► SNow Update INC (closed)
-#                                      └─►failure─► SNow Create INC (failure)
+#                                └─►success─► SNow Update INC (closed)
+#                                └─►failure─► SNow Create INC (failure)
 #           └─►failure─► SNow Create INC (failure)
 #
 # ── Workflow 2: Remediate CVE ─────────────────────────────────────────────────
@@ -60,11 +59,6 @@ controller_workflows:
 
       - identifier: patch_rhel
         unified_job_template: "{{ jt_patch_rhel }}"
-        success_nodes:
-          - register_insights
-
-      - identifier: register_insights
-        unified_job_template: "{{ jt_register_insights }}"
         success_nodes:
           - snow_update_inc_success
         failure_nodes:

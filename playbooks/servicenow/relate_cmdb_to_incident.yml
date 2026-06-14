@@ -1,0 +1,174 @@
+---
+# ============================================================================
+# playbooks/servicenow/relate_cmdb_to_incident.yml
+# ============================================================================
+# Given a known host FQDN and ServiceNow incident number:
+#   1. Exchanges Insights service-account credentials for a bearer token
+#   2. Looks the host up in the Insights inventory to confirm it is registered
+#   3. Looks up (or fails fast on) the host's CI in cmdb_ci_linux_server
+#   4. Patches the incident's cmdb_ci field with the found CI sys_id
+#   5. Appends a work note linking Insights UUID + CI
+#
+# Scoped to a single host — by design for the demo so only the provisioned
+# instance is associated with the incident.
+#
+# Inputs (via extra_vars or survey):
+#   incident_number   e.g. INC0011410   (required)
+#   host_fqdn         FQDN of the provisioned host (required)
+#   cve_id            e.g. CVE-2025-38352 (informational, included in work note)
+#
+# Credentials: Lightspeed Patching - ServiceNow  (SN_* env vars)
+# Insights auth:    INSIGHTS_CLIENT_ID / INSIGHTS_CLIENT_SECRET env vars
+# ============================================================================
+
+- name: Relate CMDB CI to ServiceNow incident via Insights
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    insights_sso_url: "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token"
+    insights_inventory_url: "{{ lookup('ansible.builtin.env', 'INSIGHTS_BASE_URL') | default('https://console.redhat.com', true) }}/api/inventory/v1/hosts"
+    ci_resource: cmdb_ci_linux_server
+
+  tasks:
+
+    # ── Validate inputs ────────────────────────────────────────────────────────
+    - name: Require incident_number and host_fqdn
+      ansible.builtin.assert:
+        that:
+          - incident_number | default('') | length > 0
+          - host_fqdn | default('') | length > 0
+        fail_msg: "Provide incident_number= and host_fqdn= as extra_vars."
+
+    # ── Exchange service-account creds for Insights bearer token ───────────────
+    - name: Obtain Insights bearer token (client_credentials)
+      ansible.builtin.uri:
+        url: "{{ insights_sso_url }}"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          grant_type: client_credentials
+          client_id: "{{ lookup('ansible.builtin.env', 'INSIGHTS_CLIENT_ID') }}"
+          client_secret: "{{ lookup('ansible.builtin.env', 'INSIGHTS_CLIENT_SECRET') }}"
+        status_code: 200
+        validate_certs: true
+      register: insights_token_resp
+      no_log: true
+
+    - name: Store bearer token
+      ansible.builtin.set_fact:
+        insights_bearer: "{{ insights_token_resp.json.access_token }}"
+      no_log: true
+
+    # ── Look up host in Insights inventory ─────────────────────────────────────
+    - name: Query Insights inventory for {{ host_fqdn }}
+      ansible.builtin.uri:
+        url: "{{ insights_inventory_url }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ insights_bearer }}"
+        body_format: json
+        return_content: true
+        validate_certs: true
+        status_code: 200
+      vars:
+        # Insights matches on display_name which equals the registered FQDN
+        # Pass as a URL query parameter via the url itself to keep the task simple
+      register: insights_inventory_resp_raw
+      changed_when: false
+
+    - name: Re-query Insights with display_name filter
+      ansible.builtin.uri:
+        url: "{{ insights_inventory_url }}?display_name={{ host_fqdn | urlencode }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ insights_bearer }}"
+        return_content: true
+        validate_certs: true
+        status_code: 200
+      register: insights_inventory_resp
+      changed_when: false
+
+    - name: Fail if host not found in Insights
+      ansible.builtin.assert:
+        that:
+          - insights_inventory_resp.json.total > 0
+        fail_msg: >-
+          Host '{{ host_fqdn }}' not found in Insights inventory.
+          Register it first with the 'Register Insights' job template.
+
+    - name: Store Insights system UUID
+      ansible.builtin.set_fact:
+        insights_uuid: "{{ insights_inventory_resp.json.results[0].id }}"
+
+    - name: Show Insights UUID
+      ansible.builtin.debug:
+        msg: "Insights UUID for {{ host_fqdn }}: {{ insights_uuid }}"
+
+    # ── Look up the CMDB CI ────────────────────────────────────────────────────
+    - name: Look up CI in cmdb_ci_linux_server by FQDN
+      servicenow.itsm.api_info:
+        resource: "{{ ci_resource }}"
+        sysparm_query: "fqdn={{ host_fqdn }}^ORname={{ host_fqdn }}"
+      register: ci_lookup
+
+    - name: Fail if no CMDB CI found for this host
+      ansible.builtin.assert:
+        that:
+          - ci_lookup.record | length > 0
+        fail_msg: >-
+          No CI found in {{ ci_resource }} for '{{ host_fqdn }}'.
+          Run the 'Register CMDB and Relate' job template first.
+
+    - name: Store CI sys_id
+      ansible.builtin.set_fact:
+        ci_sys_id: "{{ ci_lookup.record[0].sys_id }}"
+        ci_name: "{{ ci_lookup.record[0].name }}"
+
+    # ── Look up the incident ───────────────────────────────────────────────────
+    - name: Look up incident {{ incident_number }}
+      servicenow.itsm.api_info:
+        resource: incident
+        sysparm_query: "number={{ incident_number }}"
+      register: inc_lookup
+
+    - name: Fail if incident not found
+      ansible.builtin.assert:
+        that:
+          - inc_lookup.record | length > 0
+        fail_msg: "Incident '{{ incident_number }}' not found in ServiceNow."
+
+    - name: Store incident sys_id
+      ansible.builtin.set_fact:
+        inc_sys_id: "{{ inc_lookup.record[0].sys_id }}"
+
+    # ── Patch incident cmdb_ci ─────────────────────────────────────────────────
+    - name: Set cmdb_ci on {{ incident_number }} to CI {{ ci_name }}
+      servicenow.itsm.api:
+        action: patch
+        resource: incident
+        sys_id: "{{ inc_sys_id }}"
+        data:
+          cmdb_ci: "{{ ci_sys_id }}"
+      register: inc_patch
+
+    # ── Append work note ───────────────────────────────────────────────────────
+    - name: Append work note linking Insights UUID and CI
+      servicenow.itsm.api:
+        action: patch
+        resource: incident
+        sys_id: "{{ inc_sys_id }}"
+        data:
+          work_notes: >-
+            [Lightspeed Patching] CMDB CI linked automatically.
+            Host: {{ host_fqdn }}
+            CMDB CI: {{ ci_name }} (sys_id: {{ ci_sys_id }})
+            Insights UUID: {{ insights_uuid }}
+            {% if cve_id | default('') | length > 0 %}CVE: {{ cve_id }}{% endif %}
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg: >-
+          {{ incident_number }} cmdb_ci set to '{{ ci_name }}' ({{ ci_sys_id }}).
+          Insights UUID: {{ insights_uuid }}.
