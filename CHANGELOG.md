@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed (2026-06-14)
+
+- **Provision workflow — RITM callbacks instead of incident callbacks**
+  (issue #39). The Provision and Onboard workflow now uses RITM (requested item)
+  callbacks matching the dc1.azure pattern: `notice_provision_started.yml` posts
+  to the RITM at launch, `update_ritm.yml` closes it on success (state 3) or
+  failure (state 4). Incident callbacks (`SNow Update INC`, `SNow Close INC`)
+  are removed from the Provision workflow and remain only in the Remediate CVE
+  workflow where they belong. All RITM nodes no-op gracefully on manual AAP UI
+  launches (no `ticket_number`).
+
 ### Added (2026-06-13)
 
 ### Added (2026-06-13)

@@ -130,7 +130,43 @@ controller_templates:
       - "{{ cred_linux }}"
     ask_limit_on_launch: true
 
-  # ── ServiceNow callbacks ───────────────────────────────────────────────────
+  # ── ServiceNow callbacks (Provision workflow — RITM) ────────────────────────
+  - name: "{{ jt_snow_notice_provision }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ control_inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/servicenow/notice_provision_started.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_servicenow }}"
+      - "{{ cred_controller }}"
+
+  - name: "{{ jt_snow_update_ritm_success }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ control_inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/servicenow/update_ritm.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_servicenow }}"
+    extra_vars:
+      ritm_outcome: success
+
+  - name: "{{ jt_snow_update_ritm_failure }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ control_inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/servicenow/update_ritm.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_servicenow }}"
+    extra_vars:
+      ritm_outcome: failure
+
+  # ── ServiceNow callbacks (Remediate workflow — Incident) ───────────────────
   - name: "{{ jt_snow_notice_started }}"
     job_type: run
     organization: "{{ my_organization }}"

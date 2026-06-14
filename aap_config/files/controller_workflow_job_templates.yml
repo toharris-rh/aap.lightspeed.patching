@@ -4,15 +4,17 @@
 # ── Workflow 1: Provision and Onboard ─────────────────────────────────────────
 #
 #   SNow catalog order (via EDA)
-#     └─► SNow Notice Started [parallel]
+#     └─► SNow Notice Provision Started (RITM) [parallel]
 #     └─► Provision VM (AWS Terraform)
 #           └─►success─► Configure MOTD (banner + motd)
 #                          └─► Register RHEL (CDN + Insights in one play)
 #                                └─► Register CMDB CI
 #                                      └─► Patch RHEL (full)
-#                                            └─►success─► SNow Update INC (closed)
+#                                            └─►success─► SNow Update RITM (success)
 #                                            └─►failure─► SNow Create INC (failure)
+#                                                           └─►always─► SNow Update RITM (failure)
 #           └─►failure─► SNow Create INC (failure)
+#                          └─►always─► SNow Update RITM (failure)
 #
 # ── Workflow 2: Remediate CVE ─────────────────────────────────────────────────
 #
@@ -41,8 +43,8 @@ controller_workflows:
             - medium
             - large
     simplified_workflow_nodes:
-      - identifier: notice_started
-        unified_job_template: "{{ jt_snow_notice_started }}"
+      - identifier: notice_provision_started
+        unified_job_template: "{{ jt_snow_notice_provision }}"
         success_nodes: []
         failure_nodes: []
         always_nodes: []
@@ -72,15 +74,25 @@ controller_workflows:
       - identifier: patch_rhel
         unified_job_template: "{{ jt_patch_rhel }}"
         success_nodes:
-          - snow_update_inc_success
+          - snow_update_ritm_success
         failure_nodes:
-          - snow_create_inc_provision_fail
+          - snow_create_inc_patch_fail
 
-      - identifier: snow_update_inc_success
-        unified_job_template: "{{ jt_snow_update_inc }}"
+      - identifier: snow_update_ritm_success
+        unified_job_template: "{{ jt_snow_update_ritm_success }}"
 
       - identifier: snow_create_inc_provision_fail
         unified_job_template: "{{ jt_snow_create_inc }}"
+        always_nodes:
+          - snow_update_ritm_failure
+
+      - identifier: snow_create_inc_patch_fail
+        unified_job_template: "{{ jt_snow_create_inc }}"
+        always_nodes:
+          - snow_update_ritm_failure
+
+      - identifier: snow_update_ritm_failure
+        unified_job_template: "{{ jt_snow_update_ritm_failure }}"
 
   - name: "{{ workflow_remediate_name }}"
     organization: "{{ my_organization }}"

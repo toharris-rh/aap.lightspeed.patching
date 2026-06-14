@@ -1,0 +1,92 @@
+---
+# ============================================================================
+# playbooks/servicenow/notice_provision_started.yml
+# ============================================================================
+# Ties the two systems together AT LAUNCH. Runs as the first/root workflow node
+# (parallel to Provision VM), so the requester sees activity within seconds
+# instead of waiting for completion. Writes back to the originating
+# sc_req_item (RITM):
+#   - comments   (customer-visible): "provisioning started"
+#   - work_notes (fulfiller):        AAP workflow job ID + deep link
+# and publishes the reverse link (AAP job → RITM) via set_stats.
+#
+# Guarded on ticket_number so non-ServiceNow launches (AAP UI) no-op.
+#
+# Modeled on dc1.azure notice_ritm_started.yml.
+#
+# Credentials (on the JT): Lightspeed Patching - ServiceNow (SN_*)
+#                         + Lightspeed Patching - Controller (CONTROLLER_HOST)
+# ============================================================================
+
+- name: Notify ServiceNow that provisioning has started
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    aap_base_url: "{{ lookup('ansible.builtin.env', 'CONTROLLER_HOST') }}"
+    snow_base_url: "{{ lookup('ansible.builtin.env', 'SN_HOST') }}"
+    wf_job_id: "{{ awx_workflow_job_id | default(tower_workflow_job_id | default('')) }}"
+    aap_job_url: "{{ aap_base_url }}/execution/jobs/workflow/{{ wf_job_id }}/output"
+    ritm_start_comment: |-
+      Provisioning has started in Ansible Automation Platform.
+
+      A {{ vm_size_tier | default('medium') }} RHEL 9 VM on AWS is being
+      built and configured (typically ~10 minutes). This ticket will update
+      again when it completes.
+    ritm_start_worknote: |-
+      Automation started in Ansible Automation Platform.
+      Workflow Job: #{{ wf_job_id | default('n/a') }}
+      Live status:  {{ aap_job_url }}
+
+  tasks:
+    - name: Post the start notice (only on a ServiceNow-driven run)
+      when:
+        - ticket_number is defined
+        - ticket_number | string | length > 0
+      block:
+        - name: Use the threaded sys_id when present
+          ansible.builtin.set_fact:
+            ritm_sys_id: "{{ ticket_sys_id }}"
+          when:
+            - ticket_sys_id is defined
+            - ticket_sys_id | string | length > 0
+
+        - name: Resolve the RITM sys_id by number (fallback)
+          when: ritm_sys_id is not defined
+          block:
+            - name: Query sc_req_item by number
+              register: ritm_lookup
+              servicenow.itsm.api_info:
+                resource: sc_req_item
+                sysparm_query: "numberSTARTSWITH{{ ticket_number }}"
+
+            - name: Fail clearly if the RITM was not found
+              ansible.builtin.assert:
+                that:
+                  - ritm_lookup.record | length > 0
+                fail_msg: "No sc_req_item matched number '{{ ticket_number }}'."
+
+            - name: Set sys_id from the lookup
+              ansible.builtin.set_fact:
+                ritm_sys_id: "{{ ritm_lookup.record[0].sys_id }}"
+
+        - name: Patch the RITM — customer comment + fulfiller work note
+          servicenow.itsm.api:
+            action: patch
+            resource: sc_req_item
+            sys_id: "{{ ritm_sys_id }}"
+            data:
+              comments: "{{ ritm_start_comment }}"
+              work_notes: "{{ ritm_start_worknote }}"
+
+        - name: Publish the reverse link (AAP job → ServiceNow RITM)
+          ansible.builtin.set_stats:
+            data:
+              snow_ritm_url: "{{ snow_base_url }}/nav_to.do?uri=sc_req_item.do?sys_id={{ ritm_sys_id }}"
+              snow_ritm_number: "{{ ticket_number }}"
+
+    - name: Note skip on a non-ServiceNow run
+      when: ticket_number is not defined or (ticket_number | string | length == 0)
+      ansible.builtin.debug:
+        msg: "No ticket_number — non-ServiceNow launch; skipping RITM start notice."
