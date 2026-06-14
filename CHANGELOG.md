@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-06-14)
+
+- **Showcase the provisioned-host MOTD in the README** (issue #65). New
+  "The provisioned host" section displays the Red Hat Lightspeed CVE Patching
+  Engine login banner (`playbooks/files/motd`, installed by
+  `playbooks/configure_motd.yml`) in a fenced code block. Docs-only.
+
 ### Fixed (2026-06-14)
 
 - **Teardown inventory cleanup 401 — rename `aap_token` fact to `lsp_cac_token`**

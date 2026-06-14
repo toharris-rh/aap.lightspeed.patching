@@ -32,6 +32,49 @@ identify, remediate, and record CVEs and advisories — with full ITSM integrati
 
 ---
 
+## The provisioned host
+
+Every RHEL host provisioned and patched by this workflow gets a Red Hat
+Lightspeed login banner, installed by
+[`playbooks/configure_motd.yml`](playbooks/configure_motd.yml):
+
+```text
+        ___________________________________________________________________
+       /                                                                   \
+      |    ____  _____ ____    _   _    _  _____                            |
+      |   |  _ \| ____|  _ \  | | | |  / \|_   _|                           |
+      |   | |_) |  _| | | | | | |_| | / _ \ | |                             |
+      |   |  _ <| |___| |_| | |  _  |/ ___ \| |                             |
+      |   |_| \_\_____|____/  |_| |_/_/   \_\_|                             |
+      |                                                                     |
+      |   _     ___ ____ _   _ _____ ____  ____  _____ _____ ____           |
+      |  | |   |_ _/ ___| | | |_   _/ ___||  _ \| ____| ____|  _ \          |
+      |  | |    | | |  _| |_| | | | \___ \| |_) |  _| |  _| | | | |         |
+      |  | |___ | | |_| |  _  | | |  ___) |  __/| |___| |___| |_| |         |
+      |  |_____|___\____|_| |_| |_| |____/|_|   |_____|_____|____/          |
+      |                                                                     |
+      |         =============================================               |
+      |          C V E   P A T C H I N G   E N G I N E                      |
+      |         =============================================               |
+      |                                                                     |
+      |   Powered by:                                                       |
+      |     - Red Hat Insights            (detect)                          |
+      |     - Event-Driven Ansible        (respond)                         |
+      |     - Ansible Automation Platform (remediate)                       |
+      |     - ServiceNow ITSM             (track)                           |
+      |                                                                     |
+      |   This host is managed by AAP. Manual changes may be reverted.      |
+       \___________________________________________________________________/
+              \
+               \   ^__^
+                \  (oo)\_______
+                   (__)\       )\/\
+                       ||----w |
+                       ||     ||
+```
+
+---
+
 ## Prerequisites
 
 - Ansible Automation Platform 2.4+
