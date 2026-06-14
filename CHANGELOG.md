@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (2026-06-14)
+
+- **Register CMDB CI no longer fails with a recursive template loop** (issue
+  #80). `register_cmdb_and_relate.yml` defined a self-referential play var
+  (`cmdb_managed_by: "{{ cmdb_managed_by | default('hercules') }}"`), which
+  triggers Ansible's "recursive loop detected in template string" error.
+  Renamed the resolved internal variable to `managed_by_user` so the value no
+  longer templates itself; `cmdb_managed_by` remains the input (extra var /
+  `CMDB_MANAGED_BY`) and the `hercules` default is preserved.
+
 ### Changed (2026-06-14)
 
 - **Teardown refactored into a two-step workflow** (issue #81). Splits the
