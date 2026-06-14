@@ -4,7 +4,7 @@
 
 ## Test plan
 
-<!-- How was this validated? e.g. yamllint pass, event stream tested, dtctl apply, doc render check. -->
+<!-- How was this validated? e.g. yamllint + ansible-lint pass, job template run, load.yml sync, doc render check. -->
 
 ## Risk / rollback
 
@@ -13,7 +13,7 @@
 ## Checklist
 
 - [ ] No tokens, passwords, or secrets committed
-- [ ] No real Dynatrace tenant id — used the `<env-id>` placeholder (real value stays in `docs/dev-environment.sh`)
+- [ ] No customer/RHDP data — used generic placeholders (real values stay in `docs/dev-environment.sh`)
 - [ ] `CHANGELOG.md` updated under `[Unreleased]`
 - [ ] `ROADMAP.md` phase status / Decisions Log updated if this changes the plan
 
