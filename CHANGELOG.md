@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed (2026-06-14)
+
+- **Teardown refactored into a two-step workflow** (issue #81). Splits the
+  monolithic `teardown_vm_aws.yml` into two JTs wired by a new
+  `Lightspeed Patching - Teardown` workflow:
+  1. `Unregister RHEL` — runs against the host inventory, SSHes in and
+     unregisters from CDN + Insights (`rhc state: absent`).
+  2. `Teardown VM (AWS)` — runs against the control inventory (no host lock),
+     does `terraform destroy` + REST host cleanup.
+  Eliminates the 409 "Resource is being used by running jobs" race on host
+  deletion. Nightly schedules now target the workflow.
+
 ### Added (2026-06-14)
 
 - **Consistent hostnames + Insights UUID + Managed-by across Insights / AAP /

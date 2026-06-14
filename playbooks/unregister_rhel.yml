@@ -1,0 +1,27 @@
+---
+# ============================================================================
+# playbooks/unregister_rhel.yml
+# ============================================================================
+# Unregisters a RHEL host from the Red Hat CDN and Red Hat Insights.
+# Uses the certified rhc system role with rhc_state: absent — handles both
+# subscription-manager and insights-client cleanup in one invocation.
+#
+# Idempotent: if the host is already unregistered or unreachable (destroyed),
+# the play succeeds cleanly (ignore_unreachable: true).
+#
+# Credentials: Lightspeed Patching - Linux Machine (SSH)
+#              Lightspeed Patching - Red Hat CDN
+# ============================================================================
+
+- name: Unregister the RHEL host from the Red Hat CDN and Insights
+  hosts: all
+  gather_facts: false
+  become: true
+  ignore_unreachable: true
+
+  tasks:
+    - name: Unregister from CDN + Insights (certified rhc role, state absent)
+      ansible.builtin.include_role:
+        name: redhat.rhel_system_roles.rhc
+      vars:
+        rhc_state: absent

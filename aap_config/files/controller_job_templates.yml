@@ -34,20 +34,35 @@ controller_templates:
             - medium
             - large
 
-  # ── Teardown ─────────────────────────────────────────────────────────────
-  # Unregisters the host from the CDN + Insights, then terraform destroy +
-  # deregisters it from the inventory. Idempotent (no VM -> no-op). Driven by
-  # the nightly 6 PM / 10 PM schedules (controller_schedules.yml).
-  - name: "{{ jt_teardown }}"
+  # ── Unregister RHEL (CDN + Insights) ────────────────────────────────────
+  # Best-effort: if the host is already gone, the play succeeds cleanly.
+  # Runs against the live inventory (hosts: all). Wired as the first step
+  # in the Teardown workflow (always → Teardown VM).
+  - name: "{{ jt_unregister_rhel }}"
     job_type: run
     organization: "{{ my_organization }}"
     inventory: "{{ inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/unregister_rhel.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_linux }}"
+      - "{{ cred_rh_cdn }}"
+
+  # ── Teardown VM (AWS) ────────────────────────────────────────────────────
+  # Terraform destroy + deregister host from AAP inventory. Runs against
+  # the control inventory (no host lock). CDN/Insights unregistration is
+  # handled by the Unregister RHEL JT in the Teardown workflow.
+  # Idempotent (no VM / no state -> no-op).
+  - name: "{{ jt_teardown }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ control_inventory_name }}"
     project: "{{ project_name }}"
     playbook: playbooks/teardown_vm_aws.yml
     execution_environment: "{{ my_execution_environment }}"
     credentials:
       - "{{ cred_aws }}"            # AWS_* for terraform destroy
-      - "{{ cred_linux }}"          # SSH for the unregister play
       - "{{ cred_controller }}"     # mint a token for inventory deregistration
     extra_vars:
       aws_region: "{{ aws_default_region }}"

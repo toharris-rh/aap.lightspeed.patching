@@ -116,6 +116,7 @@ project_name: "Lightspeed Patching"
 inventory_name: "lightspeed-patching"
 control_inventory_name: "lightspeed-patching-control"
 workflow_provision_name: "Lightspeed Patching - Provision and Onboard"
+workflow_teardown_name: "Lightspeed Patching - Teardown"
 workflow_remediate_name: "Lightspeed Patching - Remediate CVE Workflow"
 
 cred_aws: "Lightspeed Patching - AWS"
@@ -126,6 +127,7 @@ cred_rh_cdn: "Lightspeed Patching - Red Hat CDN"
 
 # Job template names
 jt_provision: "Lightspeed Patching - Provision VM (AWS)"
+jt_unregister_rhel: "Lightspeed Patching - Unregister RHEL"
 jt_teardown: "Lightspeed Patching - Teardown VM (AWS)"
 jt_configure_motd: "Lightspeed Patching - Configure MOTD"
 jt_register_rhel: "Lightspeed Patching - Register RHEL"

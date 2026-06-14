@@ -10,13 +10,13 @@
 # if you want a different local time.
 controller_schedules:
   - name: "{{ teardown_schedule_name }}"
-    unified_job_template: "{{ jt_teardown }}"
+    unified_job_template: "{{ workflow_teardown_name }}"
     description: "Tear down the Lightspeed Patching demo VM daily at 6 PM America/Phoenix (no DST)."
     rrule: "DTSTART;TZID=America/Phoenix:20260613T180000 RRULE:FREQ=DAILY;INTERVAL=1"
     enabled: true
 
   - name: "{{ teardown_schedule_name_late }}"
-    unified_job_template: "{{ jt_teardown }}"
+    unified_job_template: "{{ workflow_teardown_name }}"
     description: "Safety-net teardown at 10 PM America/Phoenix — catches late work sessions."
     rrule: "DTSTART;TZID=America/Phoenix:20260613T220000 RRULE:FREQ=DAILY;INTERVAL=1"
     enabled: true
