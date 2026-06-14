@@ -95,6 +95,21 @@ Then sync local `main`:
 git checkout main && git pull --ff-only origin main
 ```
 
+**Verify CI is actually green before merging — `Lint` is NOT a required
+status check.** A failing `Lint` run does not block merge, so a red lint can
+ride along silently (this is how `ansible-lint` stayed broken on `main` across
+several PRs — see issue #58). Auto-merge succeeding is *not* evidence the
+checks passed. Always confirm explicitly:
+
+```bash
+gh pr checks <N> --repo toharris-rh/aap.lightspeed.patching
+```
+
+All jobs should read `pass` before you merge. A common offline-lint failure is
+`syntax-check[unknown-module]` for a certified module — fix it by adding the
+module to `mock_modules` in `.ansible-lint`, not by skipping (syntax-check is
+unskippable).
+
 Only merge when the user asks, or when a fix is verified. After a merge that
 touches CaC, the EDA project in AAP syncs rulebooks from `main` — so merge
 before relying on a rulebook change being live (the activation *definitions* in

@@ -11,7 +11,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   on every run since #44 — including on `main` — because
   `servicenow.itsm.configuration_item` was used without a matching entry in
   `.ansible-lint`'s `mock_modules`, tripping the unskippable `syntax-check`
-  rule. Added the missing mock so lint passes again.
+  rule. Added the missing mock so lint passes again. Also documented in the
+  repo-workflow skill that `Lint` is not a required status check, so CI must be
+  confirmed green (`gh pr checks`) before merging rather than trusting that a
+  merge succeeded.
 
 ### Added (2026-06-14)
 
