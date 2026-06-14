@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-06-14)
+
+- **Document the `AAP_HOSTNAME` no-trailing-slash requirement** (issue #56).
+  `docs/dev-environment.sh.example` and the environment skill now warn that
+  `AAP_HOSTNAME` must not end in a slash, because some playbooks (e.g.
+  `teardown_vm_aws.yml`) concatenate it raw with `/api/...` and a trailing slash
+  yields a `//api/...` URL that the gateway 404s — silently orphaning inventory
+  hosts. The skill note also flags the diagnostic trap that the connectivity
+  test's `${AAP_HOSTNAME%/}` strips the slash and hides the problem.
+
 ### Fixed (2026-06-14)
 
 - **Pin Terraform RHEL AMI lookup to 9.8** (issue #54). `terraform/data.tf`

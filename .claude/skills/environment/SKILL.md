@@ -59,7 +59,7 @@ secrets in version control — ever.
 
 | Env var | Purpose | Default |
 |---------|---------|---------|
-| `AAP_HOSTNAME` | Controller URL, e.g. `https://controller.XXXXXXX.rhdemos.com` | *(required)* |
+| `AAP_HOSTNAME` | Controller URL, e.g. `https://controller.XXXXXXX.rhdemos.com` — **no trailing slash** | *(required)* |
 | `AAP_CONTROLLER_USERNAME` | API user | `admin` |
 | `AAP_CONTROLLER_PASSWORD` | API password | *(required)* |
 | `AAP_VALIDATE_CERTS` | TLS verification | `false` |
@@ -68,6 +68,17 @@ secrets in version control — ever.
 **AAP 2.5 gateway note**: The ping endpoint is `/api/gateway/v1/ping/`, NOT the
 legacy `/api/v2/ping/`. Using the wrong path returns 404 and looks like a
 connectivity failure.
+
+**`AAP_HOSTNAME` must have NO trailing slash.** Some playbooks concatenate it
+raw with an API path (e.g. `playbooks/teardown_vm_aws.yml`:
+`{{ aap_hostname }}/api/controller/v2/...`). A trailing slash produces
+`//api/controller/...`, which the gateway envoy rejects with **HTTP 404**. In
+teardown this silently skips inventory cleanup and orphans the destroyed host,
+which then makes the next scheduled teardown fail `UNREACHABLE`.
+**Diagnostic trap:** the connectivity test below uses `${AAP_HOSTNAME%/}`, which
+strips the trailing slash — so the auth test **passes** even when the slash is
+present, hiding the problem. Verify the raw value has no trailing slash:
+`printf '%s\n' "$AAP_HOSTNAME" | grep -q '/$' && echo "FIX: trailing slash"`.
 
 ### 2. AWS
 
