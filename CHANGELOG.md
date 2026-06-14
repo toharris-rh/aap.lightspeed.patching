@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added (2026-06-13)
 
+### Removed (2026-06-13)
+
+- **`jt_register_insights`** job template and its `group_vars` var removed —
+  redundant since Insights registration is now part of `register_rhel.yml`.
+  The `register_insights.yml` playbook is retained for standalone debugging use.
+
 ### Changed (2026-06-13)
 
 - **`register_rhel.yml`** — merged `register_insights.yml` into a single play:

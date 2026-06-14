@@ -80,18 +80,6 @@ controller_templates:
       - "{{ cred_servicenow }}"
     ask_limit_on_launch: true
 
-  # ── Register Insights ──────────────────────────────────────────────────────
-  - name: "{{ jt_register_insights }}"
-    job_type: run
-    organization: "{{ my_organization }}"
-    inventory: "{{ inventory_name }}"
-    project: "{{ project_name }}"
-    playbook: playbooks/register_insights.yml
-    execution_environment: "{{ my_execution_environment }}"
-    credentials:
-      - "{{ cred_linux }}"
-    ask_limit_on_launch: true
-
   # ── CVE Remediation ────────────────────────────────────────────────────────
   - name: "{{ jt_remediate_cve }}"
     job_type: run
