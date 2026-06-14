@@ -141,6 +141,7 @@ Used by the AAP credential `Lightspeed Patching - Red Hat CDN` (type
 | `SN_HOST` | Instance URL (`https://<instance>.service-now.com`) | *(required)* |
 | `SN_USERNAME` | API user (needs `itil` + REST roles) | *(required)* |
 | `SN_PASSWORD` | API password | *(required)* |
+| `CMDB_MANAGED_BY` | SN `user_name` for CI "Managed by" (e.g. `hercules`, `toharris`) | `hercules` |
 | `EDA_EVENT_STREAM_TOKEN` | Bearer token for SNow→EDA webhook | *(required)* |
 
 **Use the exact `SN_USERNAME`** from `docs/dev-environment.sh` — a plausible
@@ -158,9 +159,10 @@ Generate with: `openssl rand -hex 32`.
 | `INSIGHTS_CLIENT_ID` | Service account client ID | *(optional)* |
 | `INSIGHTS_CLIENT_SECRET` | Service account client secret | *(optional)* |
 
-**Note**: These vars are defined in the template but are not yet consumed by
-any playbook in `aap_config/group_vars/all.yml`. They exist for future direct
-Insights API calls (e.g. triggering scans).
+**Note**: `INSIGHTS_CLIENT_ID` / `INSIGHTS_CLIENT_SECRET` are consumed by
+`relate_cmdb_to_incident.yml` (OAuth2 token exchange for the Insights inventory
+lookup). The `update_cmdb_correlation_id.yml` playbook does NOT need them — it
+reads the UUID from the host directly.
 
 ### 7. Automation Analytics / Subscriptions
 
@@ -316,8 +318,8 @@ for var in AAP_HOSTNAME AAP_CONTROLLER_USERNAME AAP_CONTROLLER_PASSWORD \
   AAP_VALIDATE_CERTS AH_HOSTNAME AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY \
   AWS_DEFAULT_REGION AWS_TF_STATE_BUCKET LINUX_ADMIN_USERNAME \
   RH_ORG_ID RH_ACTIVATION_KEY SN_HOST SN_USERNAME SN_PASSWORD \
-  EDA_EVENT_STREAM_TOKEN INSIGHTS_CLIENT_ID INSIGHTS_CLIENT_SECRET \
-  LIGHTSPEED_PATCHING_EE_VERSION; do
+  CMDB_MANAGED_BY EDA_EVENT_STREAM_TOKEN INSIGHTS_CLIENT_ID \
+  INSIGHTS_CLIENT_SECRET LIGHTSPEED_PATCHING_EE_VERSION; do
   printenv "$var" >/dev/null 2>&1 && printf "%-40s SET\n" "$var" \
     || printf "%-40s *** MISSING ***\n" "$var"
 done
