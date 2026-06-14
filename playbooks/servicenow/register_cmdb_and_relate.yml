@@ -49,7 +49,11 @@
     ci_assigned_to: service.ansible
     # ServiceNow user_name recorded as 'Managed by' on the CI. Resolved to a
     # sys_user sys_id below. Defaults to 'hercules' for standalone runs.
-    cmdb_managed_by: "{{ cmdb_managed_by | default('hercules') }}"
+    # NOTE: distinct from the 'cmdb_managed_by' input so the value does not
+    # template itself — a self-referential play var (cmdb_managed_by:
+    # "{{ cmdb_managed_by | default(...) }}") triggers Ansible's "recursive
+    # loop detected" error (issue #80).
+    managed_by_user: "{{ cmdb_managed_by | default('hercules') }}"
 
   tasks:
     - name: Require a host FQDN
@@ -88,7 +92,7 @@
     - name: Look up the 'Managed by' user by user_name
       servicenow.itsm.api_info:
         resource: sys_user
-        sysparm_query: "user_name={{ cmdb_managed_by }}"
+        sysparm_query: "user_name={{ managed_by_user }}"
       register: managed_by_lookup
 
     - name: Resolve the 'Managed by' user sys_id (empty if not found)
@@ -98,7 +102,7 @@
     - name: Warn if the 'Managed by' user was not found
       when: managed_by_sys_id | length == 0
       ansible.builtin.debug:
-        msg: "WARNING: no sys_user matched user_name '{{ cmdb_managed_by }}' — leaving Managed by unset."
+        msg: "WARNING: no sys_user matched user_name '{{ managed_by_user }}' — leaving Managed by unset."
 
     # --- Host CI (create or update) ------------------------------------------
     - name: Create or update the host configuration item
