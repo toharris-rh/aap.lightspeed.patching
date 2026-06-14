@@ -6,11 +6,12 @@
 #   SNow catalog order (via EDA)
 #     └─► SNow Notice Started [parallel]
 #     └─► Provision VM (AWS Terraform)
-#           └─►success─► Register RHEL (CDN + Insights in one play)
-#                          └─► Register CMDB CI
-#                                └─► Patch RHEL (full)
-#                                      └─►success─► SNow Update INC (closed)
-#                                      └─►failure─► SNow Create INC (failure)
+#           └─►success─► Configure MOTD (banner + motd)
+#                          └─► Register RHEL (CDN + Insights in one play)
+#                                └─► Register CMDB CI
+#                                      └─► Patch RHEL (full)
+#                                            └─►success─► SNow Update INC (closed)
+#                                            └─►failure─► SNow Create INC (failure)
 #           └─►failure─► SNow Create INC (failure)
 #
 # ── Workflow 2: Remediate CVE ─────────────────────────────────────────────────
@@ -49,9 +50,14 @@ controller_workflows:
       - identifier: provision_vm
         unified_job_template: "{{ jt_provision }}"
         success_nodes:
-          - register_rhel
+          - configure_motd
         failure_nodes:
           - snow_create_inc_provision_fail
+
+      - identifier: configure_motd
+        unified_job_template: "{{ jt_configure_motd }}"
+        success_nodes:
+          - register_rhel
 
       - identifier: register_rhel
         unified_job_template: "{{ jt_register_rhel }}"

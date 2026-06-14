@@ -54,6 +54,18 @@ controller_templates:
       aws_tf_state_bucket: "{{ aws_tf_state_bucket }}"
       linux_ssh_public_key: "{{ linux_ssh_public_key }}"
 
+  # ── Configure MOTD ─────────────────────────────────────────────────────────
+  - name: "{{ jt_configure_motd }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/configure_motd.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_linux }}"
+    ask_limit_on_launch: true
+
   # ── Register RHEL ──────────────────────────────────────────────────────────
   - name: "{{ jt_register_rhel }}"
     job_type: run
