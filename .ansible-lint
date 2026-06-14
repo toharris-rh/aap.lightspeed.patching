@@ -13,6 +13,7 @@ mock_modules:
   - ansible.controller.group
   - servicenow.itsm.api
   - servicenow.itsm.api_info
+  - servicenow.itsm.configuration_item
   - servicenow.itsm.incident
 mock_roles:
   - redhat.rhel_system_roles.rhc
