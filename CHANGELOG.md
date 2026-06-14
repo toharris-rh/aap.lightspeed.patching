@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed (2026-06-14)
+
+- **lightspeed skill — clarify the two "Insights UUIDs"**. Documented the
+  distinction between the on-host `insights_id`
+  (`/etc/insights-client/machine-id`) and the Insights inventory record `id`
+  (from the API), how to read the `insights_id` quickly, that it often equals
+  the RHSM system identity on EC2, and how to resolve the inventory `id` from it.
+
 ### Fixed (2026-06-14)
 
 - **Enable the sshd pre-login banner in `configure_motd.yml`** (issue #67). The
