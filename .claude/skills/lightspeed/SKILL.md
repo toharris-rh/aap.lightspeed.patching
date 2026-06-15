@@ -245,6 +245,85 @@ credentials. It runs in the Provision-and-Onboard workflow after Register RHEL
 | `docs/dev-environment.sh` | `INSIGHTS_CLIENT_ID`, `INSIGHTS_CLIENT_SECRET` (gitignored) |
 | `docs/dev-environment.sh.example` | Template with blank Insights vars |
 
+## Notification sweep timing — critical discovery (issue #91)
+
+Red Hat Insights **detects** CVEs on upload (~1 min after `insights-client`
+runs) but only **emits** the `new-cve-*` notification on a **server-side daily
+sweep** — observed firing at **~03:30 UTC**. There is **no customer API to
+trigger it on demand.** Repeated inventory delete/re-register also resets the
+per-system "new CVE" baseline, so the sweep may never fire for a staged demo.
+
+This means:
+- The CVE appears in the Insights console almost immediately.
+- The webhook notification to EDA is delayed 0-24 hours.
+- For demos, you **must** self-POST the event (see below).
+- For production, the delay is acceptable — the sweep fires daily.
+
+## Self-POST workaround for demos
+
+`playbooks/introduce_cve.yml` works around the sweep delay by self-POSTing:
+
+1. Downgrade a package (default: `openssl`) on the target host.
+2. Run `insights-client` so Insights detects the CVE.
+3. Poll the Insights vulnerability API until the CVE is visible (up to 5 min).
+4. POST a real-shaped vulnerability notification to the EDA event stream.
+
+The POST payload matches `rulebooks/insights_vulnerability_events.yml`
+field-for-field (flat envelope: `application`, `event_type`, `context`,
+`events[].payload`), so the remediation workflow fires in seconds.
+
+**Env vars needed:**
+- `INSIGHTS_EDA_EVENT_STREAM_URL` — the event stream's POST URL (copy from the
+  event stream Details page in AAP; per-deployment, not a secret)
+- `INSIGHTS_EDA_TOKEN` (fallback: `EDA_EVENT_STREAM_TOKEN`) — the
+  `X-Insight-Token` header value (must match the event stream credential)
+
+The **"Forward events to rulebook activation"** toggle on the event stream is
+intentionally left **manual** — staging a CVE shouldn't auto-launch
+remediation. Flip it ON when you want the POST to drive the workflow.
+
+**Open gap:** The Introduce CVE JT has `cred_linux` + `cred_insights_api`
+attached, but neither injects `INSIGHTS_EDA_EVENT_STREAM_URL` or the EDA
+token. The self-POST works from a local shell (where `dev-environment.sh` sets
+both), but **fails from AAP** because the env vars are empty. Fix = a small
+custom credential type injecting those two, attached to the JT.
+
+## Custom Insights API credential type (issue #101, fixes #78)
+
+The built-in **Insights** credential type (kind `insights`) **cannot attach to
+job templates** — the controller refuses with *"Cannot assign a Credential of
+kind insights"*. It only works on inventories and projects (`scm_type:
+insights`).
+
+**Fix:** a custom **`Lightspeed Patching - Insights API`** credential type
+(kind `cloud`, attachable to JTs) that injects `INSIGHTS_CLIENT_ID`,
+`INSIGHTS_CLIENT_SECRET`, and `INSIGHTS_BASE_URL` as env vars. Defined in
+`aap_config/files/controller_credential_types.yml`; the matching credential
+instance is `cred_insights_api` in `controller_credentials.yml`.
+
+The built-in `Insights` credential (`cred_insights`) is **retained** for the
+future `scm_type: insights` project (Slice 5 — running remediation plans
+natively).
+
+## Diagnostic API calls — "no events arrive"
+
+Two console.redhat.com API calls settle the question instantly (use a
+service-account bearer token):
+
+```bash
+# 1. Did Insights GENERATE a vulnerability notification?
+curl -H "Authorization: Bearer $TOKEN" \
+  "$INSIGHTS_BASE_URL/api/notifications/v1/notifications/events?bundleIds=<rhel-bundle-id>&includeActions=true"
+# Look for application=vulnerability rows. Integration-test clicks do NOT appear here.
+
+# 2. Did it try to DELIVER, and did AAP accept (200) or reject (400)?
+curl -H "Authorization: Bearer $TOKEN" \
+  "$INSIGHTS_BASE_URL/api/integrations/v1/endpoints/<endpoint-id>/history?includeDetail=true"
+```
+
+If (1) shows no vulnerability rows, the daily sweep simply hasn't fired —
+that's expected between sweeps and is why we self-POST.
+
 ## Gotchas
 
 - **`no_log: true` on the token task** — the client secret is in the request body;
@@ -256,3 +335,16 @@ credentials. It runs in the Provision-and-Onboard workflow after Register RHEL
 - **Host not found (total: 0)** — the host hasn't been registered with Insights
   yet, or was registered under a different display_name (private hostname). Check
   console.redhat.com → Inventory → Systems.
+- **Event envelope is flat** — confirmed 2026-06-15. The Insights webhook
+  sends `event.payload.application`, `event.payload.event_type`, etc. at the
+  top level — **not** nested under `event.payload.data.*`. The rulebook
+  conditions and self-POST payload must use the flat structure.
+- **Vulnerability API has no `?cve_name=` filter** — the
+  `systems/{uuid}/cves` endpoint does not support filtering by CVE name.
+  `insights_fetch_remediation.yml` lists up to 100 CVEs and matches
+  client-side (hardcoded `limit=100`; a host with >100 CVEs would need
+  pagination).
+- **Remediation plan name is unique per org** — creating a plan with a
+  duplicate name returns `400 SequelizeUniqueConstraintError`.
+  `insights_fetch_remediation.yml` tolerates that 400 and looks up the
+  existing plan by name (issue #104). Any other 400 still fails loudly.

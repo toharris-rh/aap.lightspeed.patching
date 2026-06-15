@@ -7,6 +7,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added (2026-06-15)
 
+- **Phase 11 status summary for team sync** — new `docs/phase11-status.md`:
+  human-readable overview of the Automated CVE Remediation pipeline (what we
+  built, what we shipped, key discoveries, open gap, remaining slices 4-7,
+  and discussion topics for the Eric/Tony planning meeting).
 - **`playbooks/servicenow/send_cve_to_snow.yml`** — Ansible playbook equivalent
   of `send_cve_to_snow.sh`; queries Insights for CVEs on the provisioned host,
   selects the highest-CVSS known-exploit CVE (fallback to highest-CVSS), and
@@ -18,6 +22,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   JT with survey (`target_fqdn`, `pinned_cve`) and `cred_rh_insights_integration`.
 - **`RH Insights Integration`** custom credential type — injects
   `RH_INSIGHTS_INTEGRATION_PASSWORD` as an env var.
+
+### Changed (2026-06-15)
+
+- **Skills updated with Phase 11 learnings** — the `servicenow`, `lightspeed`,
+  and `aap-config` skills now document the CVE incident flow
+  (`create_cve_incident.yml`), the Insights notification sweep timing
+  discovery, the self-POST workaround, the custom Insights API credential type
+  pattern (kind=cloud for JT attachment), the `task_ci` ACL best-effort
+  gotcha, remediation plan idempotency, diagnostic API calls, the event stream
+  forwarding toggle, project-sync-after-merge, and `set_stats` artifact
+  threading between workflow nodes.
+
+- **Talk track build status updated** — `docs/cve-remediation-talk-track.md`
+  reflects that Slices 1-3 are merged and validated (was still showing Slices
+  3-7 as in-progress).
 
 ### Fixed (2026-06-15)
 
