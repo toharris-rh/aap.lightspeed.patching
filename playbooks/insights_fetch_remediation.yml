@@ -162,7 +162,10 @@
     # ── Create the named Insights remediation plan ───────────────────────────
     # A SAVED plan is what the AAP Insights project (scm_type: insights) syncs
     # and runs in Slice 5 — the native mount, no git glue.
-    - name: Create the Insights remediation plan
+    # Idempotent: a plan name must be unique per org, so a re-run for the same
+    # CVE+host returns 400 (SequelizeUniqueConstraintError). Tolerate that and
+    # reuse the existing plan instead of failing (issue #104).
+    - name: Create the Insights remediation plan (tolerate already-exists)
       ansible.builtin.uri:
         url: "{{ insights_base }}/api/remediations/v1/remediations"
         method: POST
@@ -177,15 +180,40 @@
               - id: "vulnerabilities:{{ fetch_cve }}"
                 systems:
                   - "{{ insights_uuid }}"
-        status_code: [200, 201]
+        status_code: [200, 201, 400]
         return_content: true
         validate_certs: true
       register: remediation_create
-      changed_when: true
+      changed_when: remediation_create.status in [200, 201]
 
-    - name: Store the remediation plan id
+    - name: Fail on any 400 other than the name already existing
+      ansible.builtin.assert:
+        that:
+          - remediation_create.status in [200, 201] or
+            ('SequelizeUniqueConstraintError' in (remediation_create.content | default('')))
+        fail_msg: "Remediation plan create failed: {{ remediation_create.content | default('') }}"
+
+    - name: Look up the existing remediation plan by name (re-run reuse)
+      when: remediation_create.status == 400
+      ansible.builtin.uri:
+        url: "{{ insights_base }}/api/remediations/v1/remediations?limit=200"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ insights_bearer }}"
+        return_content: true
+        status_code: 200
+        validate_certs: true
+      register: existing_remediations
+      changed_when: false
+
+    - name: Store the remediation plan id (newly created or reused)
       ansible.builtin.set_fact:
-        remediation_id: "{{ remediation_create.json.id }}"
+        remediation_id: >-
+          {{ remediation_create.json.id
+             if remediation_create.status in [200, 201]
+             else (existing_remediations.json.data
+                   | selectattr('name', 'equalto', remediation_plan_name)
+                   | map(attribute='id') | first) }}
 
     # ── Download the plan's playbook YAML (for the ServiceNow audit attachment)
     - name: Download the remediation plan's playbook
