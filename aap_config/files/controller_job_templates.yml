@@ -120,10 +120,10 @@ controller_templates:
     project: "{{ project_name }}"
     playbook: playbooks/servicenow/update_cmdb_correlation_id.yml
     execution_environment: "{{ my_execution_environment }}"
-    # Insights API (cred_insights) supplies the inventory UUID + machine-id;
+    # Insights API (cred_insights_api) supplies the inventory UUID + machine-id;
     # runs on the control node, so no Linux Machine credential is needed (#94).
     credentials:
-      - "{{ cred_insights }}"
+      - "{{ cred_insights_api }}"
       - "{{ cred_servicenow }}"
     ask_variables_on_launch: true
 
@@ -155,10 +155,10 @@ controller_templates:
 
   # ── Demo Setup: Introduce CVE ──────────────────────────────────────────────
   # Downgrades a package (cred_linux), then self-POSTs the detected CVE to the
-  # EDA event stream so the workflow fires immediately (issue #91). cred_insights
-  # injects INSIGHTS_CLIENT_ID/SECRET for the inventory + vulnerability lookups;
-  # pass INSIGHTS_EDA_EVENT_STREAM_URL + the X-Insight-Token (INSIGHTS_EDA_TOKEN)
-  # via extra_vars / a custom credential so the self-POST can reach the stream.
+  # EDA event stream so the workflow fires immediately (issue #91).
+  # cred_insights_api injects INSIGHTS_CLIENT_ID/SECRET for the inventory +
+  # vulnerability lookups; pass INSIGHTS_EDA_EVENT_STREAM_URL + the X-Insight-Token
+  # (INSIGHTS_EDA_TOKEN) via extra_vars so the self-POST can reach the stream.
   - name: "{{ jt_introduce_cve }}"
     job_type: run
     organization: "{{ my_organization }}"
@@ -168,13 +168,13 @@ controller_templates:
     execution_environment: "{{ my_execution_environment }}"
     credentials:
       - "{{ cred_linux }}"
-      - "{{ cred_insights }}"
+      - "{{ cred_insights_api }}"
     ask_limit_on_launch: true
 
   # ── Create the Insights remediation plan (Phase 11 / Slice 2) ──────────────
-  # Runs on the control node. The Insights credential injects
-  # INSIGHTS_CLIENT_ID/SECRET as env vars. affected_host + reported_cve arrive
-  # as workflow extra_vars (from the Insights -> EDA event) or on launch.
+  # Runs on the control node. cred_insights_api injects INSIGHTS_CLIENT_ID/SECRET
+  # as env vars. affected_host + reported_cve arrive as workflow extra_vars
+  # (from the Insights -> EDA event) or on launch.
   - name: "{{ jt_insights_fetch_remediation }}"
     job_type: run
     organization: "{{ my_organization }}"
@@ -183,7 +183,7 @@ controller_templates:
     playbook: playbooks/insights_fetch_remediation.yml
     execution_environment: "{{ my_execution_environment }}"
     credentials:
-      - "{{ cred_insights }}"
+      - "{{ cred_insights_api }}"
     ask_variables_on_launch: true
 
   # ── ServiceNow callbacks (Provision workflow — RITM) ────────────────────────

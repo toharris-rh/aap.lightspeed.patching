@@ -145,6 +145,7 @@ cred_controller: "Lightspeed Patching - Controller"
 cred_servicenow: "Lightspeed Patching - ServiceNow"
 cred_rh_cdn: "Lightspeed Patching - Red Hat CDN"
 cred_insights: "Lightspeed Patching - Insights"
+cred_insights_api: "Lightspeed Patching - Insights API"
 
 # Job template names
 jt_provision: "Lightspeed Patching - Provision VM (AWS)"

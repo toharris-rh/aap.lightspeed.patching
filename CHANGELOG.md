@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (2026-06-15)
+
+- **Insights API creds now reach job templates (issue #101 — real fix for #78).**
+  The built-in **Insights** credential is kind `insights`, which the controller
+  refuses to attach to a job template (`Cannot assign a Credential of kind
+  insights`) — it's only valid on inventories/projects. `load.yml` failed on the
+  first such JT, so the CVE rulebook activation + workflow never got created.
+  Added a custom **`Lightspeed Patching - Insights API`** credential type (kind
+  `cloud`, attachable to JTs) that injects `INSIGHTS_CLIENT_ID` /
+  `INSIGHTS_CLIENT_SECRET` / `INSIGHTS_BASE_URL`, plus a `cred_insights_api`
+  credential, and repointed the Introduce CVE, Fetch Insights Remediation, and
+  SNow Stamp Correlation ID JTs to it. The built-in `Insights` credential remains
+  for the future `scm_type: insights` project (Slice 5).
+
 ### Added (2026-06-15)
 
 - **Insights CVE rulebook activation + Automated CVE Remediation workflow
