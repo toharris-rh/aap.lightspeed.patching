@@ -18,11 +18,10 @@ via EDA, and the workflow calls ServiceNow back at each stage of patching.
 
 ## Architecture (read this first)
 
+### Path 1 — Instantaneous Patch (CHG-driven, ServiceNow catalog order)
+
 ```
-Red Hat Insights/Lightspeed advisory (Security; Critical|Important)
-  → Insights webhook (Bearer token)
-  → AAP EDA event stream "Lightspeed Patching - Insights Event Stream"
-  → rulebook rulebooks/lightspeed_events.yml  (filters severity/type)
+ServiceNow catalog order → EDA event stream → rulebook servicenow_events.yml
   → workflow "Lightspeed Patching - Instantaneous Patch"
       ├── [parallel] playbooks/servicenow/create_change_request.yml   → CHG (New)
       ├── [parallel] playbooks/servicenow/notice_patch_started.yml    → CHG (Implement) + live AAP link
@@ -30,6 +29,21 @@ Red Hat Insights/Lightspeed advisory (Security; Critical|Important)
       ├── [success] update_change_request.yml (Closed) + update_cmdb_patch_status.yml
       ├── [failure] create_incident.yml (INC) + update_change_request.yml (Cancelled)
       └── [either]  update_incident.yml (resolve INC on success / update on failure)
+```
+
+### Path 2 — Automated CVE Remediation (INC-driven, Insights→EDA native)
+
+```
+Red Hat Insights detects CVE on registered host
+  → introduce_cve.yml self-POSTs event (or native Insights ~daily sweep)
+  → AAP EDA event stream "Lightspeed Patching - Insights Event Stream"
+  → rulebook insights_vulnerability_events.yml  (match application=vulnerability + new-cve-*)
+  → workflow "Lightspeed Patching - Automated CVE Remediation"
+      ├── insights_fetch_remediation.yml  → Insights UUID → remediation==2 → create plan → download playbook
+      │     publishes: has_automated_remediation, remediation_playbook_content, host_fqdn, etc. (set_stats)
+      └── [success] create_cve_incident.yml  → INC with cmdb_ci + task_ci + playbook work note
+            publishes: cve_incident_number, cve_incident_sys_id (set_stats)
+      [Slices 4-7: Standard Change, run remediation, proof-of-fix, close-out — future]
 ```
 
 Full design doc: `docs/servicenow-integration.md`.
@@ -82,8 +96,10 @@ All in `docs/dev-environment.sh` (gitignored). Template:
 | `playbooks/servicenow/register_cmdb_and_relate.yml` | Create/upsert the `cmdb_ci_linux_server` CI, relate it to the Business App, set `managed_by` (from `cmdb_managed_by` user_name) |
 | `playbooks/servicenow/update_cmdb_correlation_id.yml` | Stamp the Insights inventory UUID into the CI's `correlation_id` (after registration) |
 | `playbooks/servicenow/create_incident.yml` | Open INC on patch failure |
+| `playbooks/servicenow/create_cve_incident.yml` | Open INC for CVE with automated remediation (Phase 11 / Slice 3) |
 | `playbooks/servicenow/update_incident.yml` | Update/resolve INC (in_progress / success / failure) |
 | `playbooks/roles/snow_log/` | Real-time per-host work notes during patching |
+| `rulebooks/insights_vulnerability_events.yml` | EDA rulebook — native Insights CVE events, launches CVE remediation workflow |
 
 ## Change Request states
 
@@ -120,6 +136,57 @@ Beyond name/IP/serial it sets two ownership/linking fields:
   created early, before the host exists in Insights), so the CMDB record links
   back to its Insights inventory entry.
 
+## CVE Incident flow (`create_cve_incident.yml`)
+
+Phase 11 / Slice 3 (issue #84, PR #90). Creates a ServiceNow Incident when
+Insights detects a CVE with an automated remediation. This is the INC-driven
+path (Path 2 above), distinct from the CHG-driven patching flow.
+
+### How it works
+
+1. **Guard:** skips the entire play if `has_automated_remediation != true`
+   (consumed from `insights_fetch_remediation.yml` via `set_stats`). The
+   Problem-ticket branch (no remediation available) is a future phase.
+2. **Resolve CMDB CI:** prefers `cmdb_ci_sys_id` (pre-threaded from the
+   provision workflow); falls back to FQDN lookup in `cmdb_ci_linux_server`.
+3. **Create incident:** `servicenow.itsm.incident` with `cmdb_ci` set at
+   creation (not post-hoc), caller `service.ansible`, impact/urgency medium.
+4. **Affected CIs link (best-effort):** attempts a `task_ci` insert for the
+   bidirectional Affected CIs relationship. **This 403s on some instances**
+   (ACL block on `task_ci` REST insert, issue #106) — the task uses
+   `failed_when: false` so it warns and continues. The primary `cmdb_ci` link
+   is already set and is sufficient for audit.
+5. **Remediation playbook as work note:** posts the raw Insights-authored
+   playbook YAML as a structured work note via the `snow_log` role — matching
+   the native integration pattern (CTASK0011747 under CHG0030280). A summary
+   work note with metadata (CVE, CVSS, host, Insights UUID, remediation plan
+   link) follows.
+6. **Publish:** `set_stats` publishes `cve_incident_number` and
+   `cve_incident_sys_id` for downstream workflow nodes (Slices 4-7).
+
+### Artifact threading via `set_stats`
+
+The Automated CVE Remediation workflow passes data between nodes using
+`set_stats` (not extra_vars injection between nodes). The pattern:
+
+- **EDA rulebook** passes `affected_host` + `reported_cve` as workflow
+  `extra_vars` (from the event payload).
+- **`insights_fetch_remediation.yml`** publishes: `has_automated_remediation`,
+  `insights_uuid`, `host_fqdn`, `reported_cve`, `cve_synopsis`,
+  `cve_description`, `remediation_id`, `remediation_plan_name`,
+  `remediation_playbook_filename`, `remediation_playbook_content`.
+- **`create_cve_incident.yml`** consumes all of the above and publishes:
+  `cve_incident_number`, `cve_incident_sys_id`.
+- The workflow needs `ask_variables_on_launch: true` for the event's vars to
+  propagate into the nodes.
+
+### snow_log role path resolution
+
+The `snow_log` role lives at `playbooks/roles/snow_log/`. Playbooks under
+`playbooks/servicenow/` search `playbooks/servicenow/roles/` first. A symlink
+at `playbooks/servicenow/roles/snow_log → ../../roles/snow_log` (issue #108,
+PR #109) makes the role resolve for all ServiceNow playbooks.
+
 ## Common tasks
 
 ### Verify SNow connectivity (read-only, safe)
@@ -153,9 +220,12 @@ ansible-playbook playbooks/servicenow/create_change_request.yml \
 3. Insights: Settings → Integrations → webhook → Authorization header → paste
 4. Trigger a test advisory → verify EDA fires
 
-## Instance state (verified 2026-06-12)
+## Instance state (verified 2026-06-15)
 
 - The configured `SN_USERNAME` account holds **`admin`** on this shared instance.
+- **CVE→INC pipeline validated:** INC0011424 created end-to-end (Insights→EDA→
+  workflow→ServiceNow) with cmdb_ci linked + remediation playbook work note.
+  Stray test incidents INC0011422/INC0011423 closed as test artifacts.
 - Installed Red Hat scoped apps:
   - **`x_rhtpp_eda` — "Event-Driven Ansible Notification Service" v1.0.6**
     (matches this repo's EDA path).

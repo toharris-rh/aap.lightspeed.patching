@@ -171,6 +171,89 @@ with `host: "{{ aap_hostname }}/api/controller/"`. The event-stream token
 credential is type `"Token Event Stream"` (the event stream's type derives from
 this credential's type; there is no separate `event_stream_type` field).
 
+## Phase 11 CaC objects (Automated CVE Remediation)
+
+Phase 11 (issue #84) added these objects, applied by `load.yml`:
+
+| Type | Object Name | CaC file | Purpose |
+|------|------------|----------|---------|
+| Event stream | Lightspeed Patching - Insights Event Stream | `eda_event_streams.yml` | Receives native Insights vulnerability webhooks (Token type) |
+| EDA credential | Lightspeed Patching - Insights Event Stream | `eda_credentials.yml` | Token Event Stream credential; `http_header_key: X-Insight-Token` |
+| Activation | Lightspeed Patching - Catch Insights CVE Events | `eda_rulebook_activations.yml` | Runs `insights_vulnerability_events.yml` rulebook |
+| Credential type | Lightspeed Patching - Insights API | `controller_credential_types.yml` | Custom kind=cloud; injects `INSIGHTS_CLIENT_ID/SECRET/BASE_URL` |
+| Credential | Lightspeed Patching - Insights API | `controller_credentials.yml` | Instance of the custom type (`cred_insights_api`) |
+| Credential | Lightspeed Patching - Insights | `controller_credentials.yml` | Built-in Insights type (`cred_insights`); for future `scm_type: insights` project |
+| Workflow | Lightspeed Patching - Automated CVE Remediation | `controller_workflow_job_templates.yml` | Fetch Remediation → Create CVE Incident (Slices 4-7 add more nodes) |
+| JT | Lightspeed Patching - Introduce CVE (Demo Setup) | `controller_job_templates.yml` | Downgrade package + self-POST to EDA |
+| JT | Lightspeed Patching - Fetch Insights Remediation | `controller_job_templates.yml` | Query Insights API, create remediation plan, download playbook |
+| JT | Lightspeed Patching - SNow Create CVE Incident | `controller_job_templates.yml` | Create INC with CI link + playbook work note |
+
+### Custom credential type pattern
+
+When AAP's built-in credential types can't attach to job templates (e.g.
+kind=`insights` refuses with *"Cannot assign a Credential of kind insights"*),
+create a **custom kind=`cloud` credential type** with env-var injectors:
+
+```yaml
+- name: "Lightspeed Patching - Insights API"
+  inputs:
+    fields:
+      - id: client_id
+        type: string
+        label: "Service account client ID"
+      - id: client_secret
+        type: string
+        label: "Service account client secret"
+        secret: true
+  injectors:
+    env:
+      INSIGHTS_CLIENT_ID: !unsafe '{{client_id}}'
+      INSIGHTS_CLIENT_SECRET: !unsafe '{{client_secret}}'
+```
+
+The `!unsafe` on injector values is required — without it, Ansible tries to
+template the Jinja delimiters as its own variables. This pattern is confirmed
+working (issue #101, fixes #78).
+
+### Event stream forwarding toggle
+
+The **"Forward events to rulebook activation"** toggle on an event stream must
+be **ON** for events to reach the bound rulebook activation. It is intentionally
+left **manual** for the Insights event stream — staging a CVE shouldn't
+auto-launch the remediation workflow. Flip it ON when ready to demo. The toggle
+is an AAP UI setting, not managed by CaC.
+
+### Project sync after merge
+
+`scm_update_on_launch` is **OFF** on the Lightspeed Patching project (to avoid
+~25s redundant syncs per workflow node). After merging playbook changes to
+`main`, **manually sync the controller project** so JTs pick up the new code:
+
+```bash
+source docs/dev-environment.sh
+curl -sk -X POST -u "$AAP_CONTROLLER_USERNAME:$AAP_CONTROLLER_PASSWORD" \
+  "$AAP_HOSTNAME/api/controller/v2/projects/20/update/"
+```
+
+Without this, JTs continue running the old playbook version.
+
+### Workflow artifact threading via `set_stats`
+
+Workflow nodes pass data between each other using `set_stats` (Ansible's
+artifact publishing mechanism), not extra_vars injection:
+
+- **EDA rulebook** fires `run_workflow_template` with `extra_vars:
+  {affected_host, reported_cve}` from the event payload.
+- **`insights_fetch_remediation.yml`** consumes those and publishes:
+  `has_automated_remediation`, `insights_uuid`, `host_fqdn`, `reported_cve`,
+  `remediation_id`, `remediation_playbook_content`, etc.
+- **`create_cve_incident.yml`** consumes the above and publishes:
+  `cve_incident_number`, `cve_incident_sys_id`.
+
+The workflow must have **`ask_variables_on_launch: true`** so the event's vars
+propagate into the first node. Each downstream node automatically receives all
+previously-published `set_stats` artifacts.
+
 ## Conventions for editing CaC
 
 - **Idempotent, additive (but not subtractive)** — re-running `load.yml` is
