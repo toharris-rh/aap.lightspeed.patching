@@ -64,24 +64,26 @@
       when: target_fqdn | length == 0
       ansible.builtin.include_tasks: "{{ playbook_dir }}/../../aap_config/tasks/aap_token_release.yml"
 
-    - name: Set target_fqdn from AAP inventory
-      when:
-        - target_fqdn | length == 0
-        - aap_hosts_resp.json.results | default([]) | length > 0
+    - name: Resolve host FQDN (from survey input or AAP inventory lookup)
       ansible.builtin.set_fact:
-        target_fqdn: "{{ aap_hosts_resp.json.results[0].name }}"
+        _resolved_fqdn: >-
+          {{ target_fqdn if (target_fqdn | default('') | length > 0)
+             else (aap_hosts_resp.json.results[0].name
+                   if (aap_hosts_resp is defined and
+                       aap_hosts_resp.json.results | default([]) | length > 0)
+                   else '') }}
 
     - name: Fail if no host found
       ansible.builtin.assert:
         that:
-          - target_fqdn | length > 0
+          - _resolved_fqdn | length > 0
         fail_msg: >-
           No host found. Provide target_fqdn= or ensure a host exists in the
           lightspeed-patching AAP inventory.
 
     - name: Show target host
       ansible.builtin.debug:
-        msg: "Target host: {{ target_fqdn }}"
+        msg: "Target host: {{ _resolved_fqdn }}"
 
     # ── Insights bearer token ─────────────────────────────────────────────────
     - name: Obtain Insights bearer token
@@ -106,7 +108,7 @@
     # ── Resolve Insights inventory_id ─────────────────────────────────────────
     - name: Look up host in Insights inventory by display_name
       ansible.builtin.uri:
-        url: "{{ insights_base }}/api/inventory/v1/hosts?display_name={{ target_fqdn | urlencode }}"
+        url: "{{ insights_base }}/api/inventory/v1/hosts?display_name={{ _resolved_fqdn | urlencode }}"
         method: GET
         headers:
           Authorization: "Bearer {{ insights_bearer }}"
@@ -120,8 +122,8 @@
         that:
           - inventory_resp.json.total > 0
         fail_msg: >-
-          Host '{{ target_fqdn }}' not found in Insights inventory.
-          Ensure insights-client has registered with --display-name={{ target_fqdn }}.
+          Host '{{ _resolved_fqdn }}' not found in Insights inventory.
+          Ensure insights-client has registered with --display-name={{ _resolved_fqdn }}.
 
     - name: Store Insights inventory_id
       ansible.builtin.set_fact:
@@ -173,7 +175,7 @@
       ansible.builtin.assert:
         that:
           - cve_list | length > 0
-        fail_msg: "No CVEs found for {{ target_fqdn }} in Insights. Try again after insights-client uploads."
+        fail_msg: "No CVEs found for {{ _resolved_fqdn }} in Insights. Try again after insights-client uploads."
 
     - name: Extract CVE attributes
       ansible.builtin.set_fact:
@@ -206,7 +208,7 @@
           timestamp: "{{ lookup('pipe', 'date -u +\"%Y-%m-%dT%H:%M:%S.%6NZ\"') }}"
           context:
             inventory_id: "{{ insights_inventory_id }}"
-            display_name: "{{ target_fqdn }}"
+            display_name: "{{ _resolved_fqdn }}"
             host_url: "{{ insights_base }}/insights/inventory/{{ insights_inventory_id }}"
           events:
             - metadata: {}
@@ -226,7 +228,7 @@
       ansible.builtin.debug:
         msg: >-
           Payload accepted by ServiceNow (HTTP {{ snow_resp.status }}).
-          CVE {{ cve_id }} sent for host {{ target_fqdn }}.
+          CVE {{ cve_id }} sent for host {{ _resolved_fqdn }}.
           Check ServiceNow for a new incident from rh_insights_integration.
 
     - name: Publish CVE details as workflow artifacts
