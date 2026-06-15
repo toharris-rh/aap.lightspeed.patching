@@ -29,6 +29,17 @@
 #     └─► Remediate CVE on affected host(s)
 #           └─►success─► SNow Close INC
 #           └─►failure─► SNow Update INC (failure / escalate)
+#
+# ── Workflow 4: Automated CVE Remediation (native Insights → EDA) ──────────────
+#
+#   Insights new-cve-* event (EDA event stream + insights_vulnerability_events
+#   rulebook activation) launches this with affected_host + reported_cve.
+#
+#   Fetch Insights Remediation (confirm remediation==2, create plan, get playbook)
+#     └─►success─► Create CVE Incident (INC + cmdb_ci + task_ci + playbook note)
+#
+#   Remediation-run / Standard-Change / proof-of-fix nodes (Slices 4-7) layer
+#   onto this same workflow later (issue #84 / #98).
 
 controller_workflows:
   - name: "{{ workflow_provision_name }}"
@@ -134,3 +145,19 @@ controller_workflows:
 
       - identifier: snow_update_inc_failure
         unified_job_template: "{{ jt_snow_update_inc }}"
+
+  # Native Insights -> EDA CVE remediation. ask_variables_on_launch lets the
+  # event's affected_host + reported_cve propagate from the activation into the
+  # nodes (issue #98).
+  - name: "{{ workflow_cve_remediation_name }}"
+    organization: "{{ my_organization }}"
+    inventory: "{{ control_inventory_name }}"
+    ask_variables_on_launch: true
+    simplified_workflow_nodes:
+      - identifier: fetch_remediation
+        unified_job_template: "{{ jt_insights_fetch_remediation }}"
+        success_nodes:
+          - create_cve_incident
+
+      - identifier: create_cve_incident
+        unified_job_template: "{{ jt_snow_create_cve_inc }}"

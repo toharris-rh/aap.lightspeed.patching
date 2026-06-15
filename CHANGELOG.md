@@ -5,6 +5,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-06-15)
+
+- **Insights CVE rulebook activation + Automated CVE Remediation workflow
+  (issue #98, part of #84).** Wires the native Insights→EDA event through to a
+  ServiceNow incident:
+  - New rulebook **activation** `Lightspeed Patching - Catch Insights CVE Events`
+    (`eda_rulebook_activations.yml`) — runs `insights_vulnerability_events.yml`,
+    bound to the Insights event stream as `__SOURCE_1`, with the RH AAP
+    credential and `my_organization` in `extra_vars`.
+  - New **workflow** `Lightspeed Patching - Automated CVE Remediation`
+    (`controller_workflow_job_templates.yml`) — minimal two-node path: Fetch
+    Insights Remediation → Create CVE Incident (on success).
+    `ask_variables_on_launch: true` so the event's `affected_host` +
+    `reported_cve` propagate into the nodes. Slices 4–7 (remediation run,
+    Standard Change, proof-of-fix) layer onto this workflow later.
+  - `Create CVE Incident` JT gains `ask_variables_on_launch: true`;
+    `insights_fetch_remediation.yml` now publishes `host_fqdn` via `set_stats`
+    so the incident step can resolve the CMDB CI.
+
 ### Changed (2026-06-15)
 
 - **CMDB `correlation_id` now holds the Insights *inventory UUID*, not the
