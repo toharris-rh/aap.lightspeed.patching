@@ -2,21 +2,24 @@
 # ============================================================================
 # rulebooks/servicenow_incident_events.yml
 # ============================================================================
-# EDA rulebook: listens for ServiceNow INC tickets created by Red Hat Insights
-# (via the native Insights→ServiceNow integration) and launches the CVE
-# remediation workflow.
+# EDA rulebook: listens for ServiceNow INC events from the Harris Business Rule
+# and responds with two independent actions:
+#
+#   Rule 1 — Link CMDB CI (fires on every CVE_INCIDENT insert)
+#     Business Rule "Harris - Inc" extracts display_name from the incident
+#     description and includes it in the payload. This rule immediately runs
+#     the "SNow Relate CMDB CI to Incident" JT so the Affected CI is set
+#     on every new CVE incident, regardless of how it was triggered.
+#
+#   Rule 2 — Remediate CVE (fires when category matches)
+#     Launches the remediation workflow on Insights-originated incidents.
+#     ⚠️  PENDING: validate the exact category field value.
 #
 # Flow:
-#   Red Hat Insights detects advisory on RHEL host
-#     → Insights → ServiceNow INC created (native integration)
-#     → ServiceNow Business Rule (watches INC table, Insights source)
-#         → POST to EDA event stream
-#     → THIS rulebook matches on source / category
-#     → run_workflow_template: Lightspeed Patching - Remediate CVE
-#
-# ⚠️  PENDING (Tony, Phase 5): validate the exact field on the SNow INC that
-#     identifies it as Insights-originated. The condition below uses
-#     event.payload.category — update once the real field is confirmed.
+#   ServiceNow INC created (Insights native integration)
+#     → Business Rule "Harris - Inc" → POST to EDA event stream
+#         → Rule 1: link CI         (event.payload.event == "CVE_INCIDENT")
+#         → Rule 2: remediate CVE   (event.payload.category == "software")
 # ============================================================================
 
 - name: Listen for ServiceNow incidents from Red Hat Insights
@@ -27,12 +30,25 @@
         port: 5000
 
   rules:
+    - name: Link CMDB CI to new CVE incident
+      # Fires on every CVE_INCIDENT payload from the Harris Business Rule.
+      # display_name is extracted from the incident description by the Business
+      # Rule and passed here as event.payload.display_name.
+      condition: event.payload.event == "CVE_INCIDENT" and event.payload.number is defined
+      action:
+        run_job_template:
+          name: "Lightspeed Patching - SNow Relate CMDB CI to Incident"
+          organization: "{{ my_organization }}"
+          job_args:
+            extra_vars:
+              incident_number: "{{ event.payload.number }}"
+              host_fqdn: "{{ event.payload.display_name | default('') }}"
+
     - name: Remediate CVE on Insights-originated incident
-      # TODO (Tony - Phase 5): replace condition with confirmed Insights INC field.
+      # TODO (Tony, Phase 5): replace condition with confirmed Insights INC field.
       # Candidate fields from the SNow INC payload:
       #   event.payload.category == "software"
       #   event.payload.u_source == "Red Hat Insights"
-      #   event.payload.caller_id == "Red Hat Insights"
       condition: event.payload.category == "software"
       action:
         run_workflow_template:
