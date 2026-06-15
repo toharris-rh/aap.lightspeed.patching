@@ -5,6 +5,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-06-15)
+
+- **Timely CVE → EDA trigger via self-POST (issue #91).** `introduce_cve.yml`
+  now, after the downgrade + `insights-client`, polls the Insights vulnerability
+  API for the host's top remediable CVE and POSTs a real-shaped vulnerability
+  notification (payload == `rulebooks/insights_vulnerability_events.yml`) straight
+  to the event stream (`X-Insight-Token` auth) — so the remediation workflow
+  fires in seconds instead of waiting on Red Hat's ~daily, un-triggerable
+  vulnerability-notification sweep (observed at 03:30 UTC). The `Forward events to
+  rulebook activation` toggle is left manual on purpose.
+  - New `INSIGHTS_EDA_EVENT_STREAM_URL` env var (`dev-environment.sh.example`,
+    `group_vars/all.yml`); `cred_insights` added to the Introduce CVE JT.
+  - `docs/cve-remediation-talk-track.md`: "Triggering a real CVE event into EDA"
+    section — the timing finding, reproduction, and the two diagnostic console
+    API calls (notification event log + endpoint delivery history).
+
 ### Fixed (2026-06-15)
 
 - **ansible-lint `name[template]` violations resolved** — moved Jinja variables

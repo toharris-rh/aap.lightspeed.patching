@@ -152,6 +152,11 @@ controller_templates:
     ask_limit_on_launch: true
 
   # ── Demo Setup: Introduce CVE ──────────────────────────────────────────────
+  # Downgrades a package (cred_linux), then self-POSTs the detected CVE to the
+  # EDA event stream so the workflow fires immediately (issue #91). cred_insights
+  # injects INSIGHTS_CLIENT_ID/SECRET for the inventory + vulnerability lookups;
+  # pass INSIGHTS_EDA_EVENT_STREAM_URL + the X-Insight-Token (INSIGHTS_EDA_TOKEN)
+  # via extra_vars / a custom credential so the self-POST can reach the stream.
   - name: "{{ jt_introduce_cve }}"
     job_type: run
     organization: "{{ my_organization }}"
@@ -161,6 +166,7 @@ controller_templates:
     execution_environment: "{{ my_execution_environment }}"
     credentials:
       - "{{ cred_linux }}"
+      - "{{ cred_insights }}"
     ask_limit_on_launch: true
 
   # ── Create the Insights remediation plan (Phase 11 / Slice 2) ──────────────
