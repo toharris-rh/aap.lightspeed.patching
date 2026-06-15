@@ -100,9 +100,13 @@
         insights_uuid: "{{ inventory_resp.json.results[0].id }}"
 
     # ── Decide: is an automated remediation available for this CVE? ──────────
-    - name: Query the vulnerability service for this CVE on this system
+    # NOTE: the systems/<uuid>/cves endpoint does NOT support a ?cve_name= filter
+    # (it returns 0 results), so list the system's CVEs and match client-side.
+    # limit=100 covers a demo host comfortably; a host with >100 applicable CVEs
+    # would need pagination.
+    - name: List the system's CVEs and wait for this CVE to be visible
       ansible.builtin.uri:
-        url: "{{ insights_base }}/api/vulnerability/v1/systems/{{ insights_uuid }}/cves?cve_name={{ fetch_cve | urlencode }}"
+        url: "{{ insights_base }}/api/vulnerability/v1/systems/{{ insights_uuid }}/cves?limit=100"
         method: GET
         headers:
           Authorization: "Bearer {{ insights_bearer }}"
@@ -112,14 +116,19 @@
       register: vuln_resp
       changed_when: false
       # Insights re-scans lag a freshly introduced CVE; wait for it to appear.
-      until: vuln_resp.json.data | default([]) | length > 0
+      until: >-
+        vuln_resp.json.data | default([]) | selectattr('id', 'equalto', fetch_cve) | list | length > 0
       retries: 30
       delay: 20
 
-    - name: Capture the CVE record + remediation availability
+    - name: Capture the CVE record
       ansible.builtin.set_fact:
-        cve_record: "{{ vuln_resp.json.data[0] }}"
-        has_automated_remediation: "{{ (vuln_resp.json.data[0].attributes.remediation | default(0) | int) == 2 }}"
+        cve_record: "{{ vuln_resp.json.data | selectattr('id', 'equalto', fetch_cve) | list | first }}"
+
+    - name: Determine whether an automated remediation is available
+      ansible.builtin.set_fact:
+        # remediation == 2 → an Ansible remediation playbook is available.
+        has_automated_remediation: "{{ (cve_record.attributes.remediation | default(0) | int) == 2 }}"
 
     - name: Summarize the decision
       ansible.builtin.debug:
