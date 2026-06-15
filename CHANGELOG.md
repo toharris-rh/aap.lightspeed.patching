@@ -35,6 +35,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed (2026-06-14)
 
+- **EDA CaC no longer 401s — `load.yml` runs clean end-to-end.** The
+  `ansible.platform.token` mint task auto-returns `ansible_facts.aap_token`,
+  which Ansible sets as a host fact that overrides the empty `aap_token`
+  group_var; the dispatch then used that *Controller* OAuth token as
+  `controller_token` for every module. The Controller API accepts it, but the
+  EDA API rejects Controller tokens with `401 Unauthorized` — the long-standing
+  "EDA is the last failure" (blocked `eda_credentials`, so event streams /
+  activations never applied). `aap_token_acquire.yml` now clears `aap_token`
+  after minting so the dispatch authenticates with `aap_username` /
+  `aap_password` basic auth, which both the Controller and EDA APIs accept.
+  `load.yml` now reports `failed=0` and creates the Insights event stream.
+
 - **ASCII-only descriptions on EDA/token CaC objects** so `load.yml` survives
   HTTP clients that encode headers as latin-1 (e.g. Python 3.14's `http.client`,
   which rejects non-ASCII chars with `UnicodeEncodeError`). Replaced em-dashes /
