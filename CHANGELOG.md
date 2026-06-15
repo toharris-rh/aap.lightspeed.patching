@@ -5,6 +5,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed (2026-06-15)
+
+- **CMDB `correlation_id` now holds the Insights *inventory UUID*, not the
+  machine-id (issue #94).** `update_cmdb_correlation_id.yml` previously read
+  `/etc/insights-client/machine-id` and stored it as `"insights_id: <id>"` —
+  the machine-id, which does not match the inventory UUID carried by the native
+  Insights→EDA event (`context.inventory_id`). The playbook now resolves the
+  host via the Insights inventory API (one call returns both `id` and
+  `insights_id`) and sets `correlation_id` = the bare inventory UUID (so an
+  incoming event joins directly to the CI) and `comments` = the Insights
+  deep-link (`/insights/inventory/<id>`) + the machine-id (preserved). Runs
+  entirely on the control node; the correlation JT swaps the Linux Machine
+  credential for the Insights credential. (`correlation_display` is read-only via
+  the Table API on this instance — a PATCH is silently ignored — so the source is
+  named in the comments instead.)
+
 ### Fixed (2026-06-15)
 
 - **CVSS in the self-POSTed CVE event was always 0.0.** `introduce_cve.yml` read

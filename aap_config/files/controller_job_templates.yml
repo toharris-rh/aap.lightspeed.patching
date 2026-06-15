@@ -120,8 +120,10 @@ controller_templates:
     project: "{{ project_name }}"
     playbook: playbooks/servicenow/update_cmdb_correlation_id.yml
     execution_environment: "{{ my_execution_environment }}"
+    # Insights API (cred_insights) supplies the inventory UUID + machine-id;
+    # runs on the control node, so no Linux Machine credential is needed (#94).
     credentials:
-      - "{{ cred_linux }}"
+      - "{{ cred_insights }}"
       - "{{ cred_servicenow }}"
     ask_variables_on_launch: true
 
