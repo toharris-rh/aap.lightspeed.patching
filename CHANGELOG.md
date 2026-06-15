@@ -25,7 +25,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     (`aap_config/files/eda_event_streams.yml`, `eda_credentials.yml`). Creating
     it needs no activation, so `load.yml` provisions it and AAP exposes the
     URL + token to paste into the Insights integration; received events become
-    visible there for capturing the real payload.
+    visible there for capturing the real payload. The credential sets
+    `http_header_key: X-Insight-Token` — the console.redhat.com "Event-Driven
+    Ansible" integration sends the shared token in that header (the certified
+    `redhat.insights_eda` plugin's primary header), not `Authorization`; without
+    it the event stream rejects the test with "Authorization header is missing".
   - Added `INSIGHTS_EDA_TOKEN` (optional; defaults to `EDA_EVENT_STREAM_TOKEN`)
     to `docs/dev-environment.sh.example`, and the `eda_insights_*` /
     `workflow_cve_remediation_name` names + token binding to `group_vars/all.yml`.
