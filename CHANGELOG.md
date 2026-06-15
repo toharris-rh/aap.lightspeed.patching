@@ -34,6 +34,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     job template in CaC. The built-in `Insights` credential type injects
     `INSIGHTS_CLIENT_ID/SECRET` as env vars — **also resolving issue #78**
     (Insights creds into JTs) without a custom credential type.
+  - `docs/dev-environment.sh.example`: note that `INSIGHTS_CLIENT_ID/SECRET` may
+    reuse the **same service account** as `REDHAT_SUBSCRIPTIONS_CLIENT_ID/SECRET`
+    (one SA with the `RHEL administrator` role covers analytics + inventory +
+    vulnerability + remediations), and that service accounts are required
+    (basic auth is deprecated).
 
 ### Added (2026-06-14)
 
