@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# send_cve_to_snow.sh — LOCAL ONLY, gitignored
+# send_cve_to_snow.sh
 # ============================================================================
 # Queries Red Hat Insights for CVEs with known exploits on the provisioned VM,
 # picks the highest CVSS one, and POSTs a vulnerability payload directly to
