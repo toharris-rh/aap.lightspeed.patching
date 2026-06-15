@@ -112,6 +112,17 @@ All in `docs/dev-environment.sh` (gitignored). Template:
 
 > Integers vary by instance — override via JT extra_vars if needed.
 
+## Incident states
+
+| Integer | State |
+|---------|-------|
+| 1 | New |
+| 2 | In Progress |
+| 3 | On Hold |
+| 6 | Resolved |
+| 7 | Closed |
+| 8 | Canceled |
+
 ## Module patterns
 
 - **`servicenow.itsm.api`** — generic Table API (POST/PATCH). CHGs, CMDB updates.
@@ -187,6 +198,44 @@ The `snow_log` role lives at `playbooks/roles/snow_log/`. Playbooks under
 at `playbooks/servicenow/roles/snow_log → ../../roles/snow_log` (issue #108,
 PR #109) makes the role resolve for all ServiceNow playbooks.
 
+## Business Rules & Outbound REST Messages (per-SE scoping)
+
+Each SE creates their own Business Rule + Outbound REST Message pair on the
+shared ServiceNow instance. The BR fires when an event happens on a record
+related to CIs the SE manages.
+
+### Per-SE scoping via `managed_by` dot-walk
+
+The shared instance hosts ~33 SEs. Instead of filtering by caller/category
+(fragile — incidents are created by `service.ansible`, not by the SE), BRs
+use a **dot-walk through `cmdb_ci.managed_by`** to scope to the SE's CIs.
+
+`register_cmdb_and_relate.yml` sets `managed_by` on each CI to the SE who
+provisioned it (via the `CMDB_MANAGED_BY` env var / `cmdb_managed_by`
+playbook var). The BR filter `cmdb_ci.managed_by=<SE sys_id>` ensures only
+incidents against that SE's CIs trigger their EDA integration.
+
+### Pattern: named REST message (not inline)
+
+Prefer a **named Outbound REST Message** (`sys_rest_message`) over inline
+`RESTMessageV2()` with `setEndpoint()`. The BR script references it by name:
+```javascript
+var r = new sn_ws.RESTMessageV2('Harris - Lightspeed EDA Event Stream', 'POST');
+```
+The endpoint URL is configured once on the REST message object. Only the bearer
+token comes from a system property (`gs.getProperty('harris.eda_event_stream_token')`).
+
+> **40-char limit** on the `sys_rest_message.name` field — keep names short.
+
+### Known SE configurations
+
+| SE | Business Rule | REST Message | Token Property | User sys_id |
+|----|---------------|--------------|----------------|-------------|
+| Eric Ames | `Ames - Service Catalog - dc1.azure` (sc_req_item) | `Ames - DC1.Azure EDA Event Stream` | `dc1.eda_event_stream_token` | `3c2d939d97283110458278671153afb5` |
+| Tony Harris | `Harris - Inc` (incident) | `Harris - Lightspeed EDA Event Stream` | `harris.eda_event_stream_token` | `94ac108687ff925064a055383cbb3519` |
+
+Full BR scripts and setup instructions: `servicenow/business-rules.md`.
+
 ## Common tasks
 
 ### Verify SNow connectivity (read-only, safe)
@@ -226,6 +275,11 @@ ansible-playbook playbooks/servicenow/create_change_request.yml \
 - **CVE→INC pipeline validated:** INC0011424 created end-to-end (Insights→EDA→
   workflow→ServiceNow) with cmdb_ci linked + remediation playbook work note.
   Stray test incidents INC0011422/INC0011423 closed as test artifacts.
+- **Harris - Inc business rule live** (2026-06-15): fires after insert on
+  `incident` table, scoped to CIs managed by Tony Harris. Outbound REST message
+  `Harris - Lightspeed EDA Event Stream` has a PLACEHOLDER endpoint — Tony needs
+  to update it with his AAP EDA event stream URL and set the
+  `harris.eda_event_stream_token` system property.
 - Installed Red Hat scoped apps:
   - **`x_rhtpp_eda` — "Event-Driven Ansible Notification Service" v1.0.6**
     (matches this repo's EDA path).
