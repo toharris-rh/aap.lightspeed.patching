@@ -146,6 +146,24 @@ controller_workflows:
       - identifier: snow_update_inc_failure
         unified_job_template: "{{ jt_snow_update_inc }}"
 
+  # ── SNow CVE Demo ──────────────────────────────────────────────────────────
+  # One-click demo: Introduce CVE (openssl downgrade + insights-client) then
+  # immediately Send CVE to ServiceNow. ServiceNow creates an INC, the Harris
+  # Business Rule POSTs it to the EDA event stream, and EDA fires remediation.
+  - name: "{{ workflow_snow_cve_demo_name }}"
+    organization: "{{ my_organization }}"
+    inventory: "{{ inventory_name }}"
+    simplified_workflow_nodes:
+      - identifier: introduce_cve
+        unified_job_template: "{{ jt_introduce_cve }}"
+        extra_data:
+          skip_eda_trigger: true
+        success_nodes:
+          - send_cve_to_snow
+
+      - identifier: send_cve_to_snow
+        unified_job_template: "{{ jt_send_cve_to_snow }}"
+
   # Native Insights -> EDA CVE remediation. ask_variables_on_launch lets the
   # event's affected_host + reported_cve propagate from the activation into the
   # nodes (issue #98).
