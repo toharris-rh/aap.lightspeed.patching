@@ -7,6 +7,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed (2026-06-15)
 
+- **`insights_fetch_remediation.yml` is now idempotent (issue #104).** A
+  remediation plan name must be unique per org, so a re-run for the same
+  CVE+host returned `400 SequelizeUniqueConstraintError` and failed the workflow
+  before the incident node ran. The create now tolerates that 400, looks up the
+  existing plan by name, and reuses its id (any other 400 still fails loudly) —
+  so the CVE→INC demo is repeatable.
+
 - **Insights API creds now reach job templates (issue #101 — real fix for #78).**
   The built-in **Insights** credential is kind `insights`, which the controller
   refuses to attach to a job template (`Cannot assign a Credential of kind
