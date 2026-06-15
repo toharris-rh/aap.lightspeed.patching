@@ -293,3 +293,14 @@ controller_templates:
           type: text
           required: false
           default: ""
+
+  # ── CVE Incident (proactive — Insights-triggered) ──────────────────────────
+  - name: "{{ jt_snow_create_cve_inc }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ control_inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/servicenow/create_cve_incident.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_servicenow }}"
