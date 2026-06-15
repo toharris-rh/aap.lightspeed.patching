@@ -34,3 +34,4 @@ __pycache__/
 
 # ansible-builder generated EE build context (derived artifact)
 context/
+payload.example
