@@ -312,7 +312,7 @@ controller_templates:
     execution_environment: "{{ my_execution_environment }}"
     credentials:
       - "{{ cred_servicenow }}"
-      - "{{ cred_insights }}"
+      - "{{ cred_insights_api }}"
       - "{{ cred_rh_insights_integration }}"
       - "{{ cred_controller }}"
     survey_enabled: true
