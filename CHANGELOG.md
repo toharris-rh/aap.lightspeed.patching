@@ -7,6 +7,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed (2026-06-15)
 
+- **`snow_log` role now resolves from `playbooks/servicenow/` (issue #108).**
+  `create_cve_incident.yml` includes the `snow_log` role, but it lives at
+  `playbooks/roles/snow_log` — out of the playbook-adjacent search path for a
+  play under `playbooks/servicenow/`, so the run failed (`role 'snow_log' was
+  not found`) before the work notes posted. Added
+  `playbooks/servicenow/roles/snow_log` as a symlink to `../../roles/snow_log`
+  (the runner already searches `playbooks/servicenow/roles/`), fixing it for
+  this and any future ServiceNow playbook.
+
 - **CVE incident no longer fails on the Affected CIs link (issue #106).** The
   `task_ci` (Affected CIs) insert in `create_cve_incident.yml` 403s for REST on
   this instance even though the primary `cmdb_ci` link succeeds; the play died
