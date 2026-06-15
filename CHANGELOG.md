@@ -19,6 +19,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Mermaid **architecture diagram** that renders on GitHub, and a list of
   screenshots to capture. Documents the Phase 11 evolution of ACT 2.
 
+- **Insights remediation-plan creation (Phase 11 / Slice 2, issue #84).** New
+  `playbooks/insights_fetch_remediation.yml`: resolves the host's Insights
+  inventory UUID, confirms an automated remediation exists for the CVE
+  (`attributes.remediation == 2`), **creates a named Insights remediation plan**
+  (`POST /api/remediations/v1/remediations`), and downloads the plan's playbook
+  YAML for the ServiceNow audit attachment. A saved plan is what an AAP
+  **Insights project** (`scm_type: insights`) syncs and runs natively in Slice 5
+  — replacing the reference repo's git-commit/sync glue. Publishes
+  `remediation_id` / `has_automated_remediation` / playbook content via
+  `set_stats`. Ends cleanly when no automated remediation exists (the Problem
+  branch is a future phase).
+  - New `Insights` (service-account) credential + `Fetch Insights Remediation`
+    job template in CaC. The built-in `Insights` credential type injects
+    `INSIGHTS_CLIENT_ID/SECRET` as env vars — **also resolving issue #78**
+    (Insights creds into JTs) without a custom credential type.
+  - `docs/dev-environment.sh.example`: note that `INSIGHTS_CLIENT_ID/SECRET` may
+    reuse the **same service account** as `REDHAT_SUBSCRIPTIONS_CLIENT_ID/SECRET`
+    (one SA with the `RHEL administrator` role covers analytics + inventory +
+    vulnerability + remediations), and that service accounts are required
+    (basic auth is deprecated).
+
 ### Added (2026-06-14)
 
 - **Native Red Hat Insights → EDA CVE trigger (Phase 1, slice 1)** — new

@@ -75,13 +75,19 @@ export EDA_EVENT_STREAM_TOKEN=""
 export INSIGHTS_EDA_TOKEN=""
 
 # ============================================================================
-# Red Hat Insights / Hybrid Cloud Console
-# Needed if calling the Insights API directly (e.g. triggering a scan).
-# Service account credentials from console.redhat.com → Settings → My Profile
+# Red Hat Insights / Hybrid Cloud Console — direct API calls
+# (inventory + vulnerability lookups, remediation plans).
+# SERVICE ACCOUNT ONLY — basic auth is deprecated for the HCC/Lightspeed APIs.
+# Create at console.redhat.com → IAM → Service Accounts, then add it to a User
+# Access group with: RHEL administrator (a superset) — or, granularly,
+# Inventory Hosts Viewer + Vulnerability Viewer + Remediations user.
+#
+# NOTE: one service account can serve BOTH this and REDHAT_SUBSCRIPTIONS_* below.
+# If you use one SA (recommended), set these to the SAME id/secret as those.
 # ============================================================================
 export INSIGHTS_BASE_URL="https://console.redhat.com"
-export INSIGHTS_CLIENT_ID=""
-export INSIGHTS_CLIENT_SECRET=""
+export INSIGHTS_CLIENT_ID=""        # may equal REDHAT_SUBSCRIPTIONS_CLIENT_ID
+export INSIGHTS_CLIENT_SECRET=""    # may equal REDHAT_SUBSCRIPTIONS_CLIENT_SECRET
 
 # ============================================================================
 # Automation Analytics / Insights (Automation Calculator)
@@ -90,6 +96,9 @@ export INSIGHTS_CLIENT_SECRET=""
 # Feeds the Automation Calculator at console.redhat.com.
 # Leave unset to skip analytics. After loading, force a first upload from the
 # AAP UI: Settings → System → Insights for Ansible Automation Platform.
+# Can be the SAME service account as INSIGHTS_CLIENT_ID/SECRET above (one SA with
+# the RHEL administrator role covers analytics + inventory + vulnerability +
+# remediations).
 # ============================================================================
 export REDHAT_SUBSCRIPTIONS_CLIENT_ID=""
 export REDHAT_SUBSCRIPTIONS_CLIENT_SECRET=""
