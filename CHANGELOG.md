@@ -11,6 +11,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   to the end of task names in `introduce_cve.yml` and
   `update_cmdb_correlation_id.yml` so CI lint passes cleanly.
 
+### Added (2026-06-15)
+
+- **Demo talk track + architecture diagram for the auditable CVE remediation
+  flow** (issue #84). New `docs/cve-remediation-talk-track.md`: presenter script
+  (beat by beat), pre-flight checklist, the GRC/control story (Control01), a
+  Mermaid **architecture diagram** that renders on GitHub, and a list of
+  screenshots to capture. Documents the Phase 11 evolution of ACT 2.
+
 ### Added (2026-06-14)
 
 - **Native Red Hat Insights → EDA CVE trigger (Phase 1, slice 1)** — new
