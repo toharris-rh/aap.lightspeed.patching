@@ -7,6 +7,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed (2026-06-15)
 
+- **CVE incident no longer fails on the Affected CIs link (issue #106).** The
+  `task_ci` (Affected CIs) insert in `create_cve_incident.yml` 403s for REST on
+  this instance even though the primary `cmdb_ci` link succeeds; the play died
+  there, so the remediation-playbook work note never posted and the workflow
+  went red. The `task_ci` link is now best-effort (warn & continue) — the run
+  completes green and posts the work notes; the CI is still linked via `cmdb_ci`.
+
 - **`insights_fetch_remediation.yml` is now idempotent (issue #104).** A
   remediation plan name must be unique per org, so a re-run for the same
   CVE+host returned `400 SequelizeUniqueConstraintError` and failed the workflow

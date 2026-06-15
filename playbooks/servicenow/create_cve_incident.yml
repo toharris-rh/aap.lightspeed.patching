@@ -126,13 +126,26 @@
         msg: "Created {{ cve_incident_number }} for {{ reported_cve }}"
 
     # ── Bidirectional CI link (task_ci — Affected CIs) ────────────────────────
-    - name: Link CI to incident via task_ci (Affected CIs)
+    # Best-effort: task_ci insert is ACL-blocked for REST on some instances
+    # (403 "Error during insert of task_ci"). The primary cmdb_ci link is already
+    # set on the incident above, so a blocked Affected-CIs link must not fail the
+    # run (issue #106).
+    - name: Link CI to incident via task_ci (Affected CIs) — best-effort
       servicenow.itsm.api:
         action: post
         resource: task_ci
         data:
           task: "{{ cve_incident_sys_id }}"
           ci_item: "{{ ci_sys_id }}"
+      register: task_ci_link
+      failed_when: false
+
+    - name: Note the Affected CIs (task_ci) link outcome
+      ansible.builtin.debug:
+        msg: >-
+          Affected CIs (task_ci) link {{ 'created' if task_ci_link.record is defined
+          else 'blocked on this instance (403/ACL) — primary cmdb_ci is already set on '
+          ~ cve_incident_number ~ ', continuing' }}.
 
     # ── Post remediation playbook as a work note (audit artifact) ─────────────
     - name: Post remediation playbook to incident activity log
