@@ -162,7 +162,12 @@
         - name: Select the detected CVE (allow override via reported_cve)
           ansible.builtin.set_fact:
             detected_cve: "{{ reported_cve | default(cve_resp.json.data[0].id, true) }}"
-            detected_cvss: "{{ cve_resp.json.data[0].attributes.cvss_score | default(0.0) }}"
+            # The Insights vulnerability API exposes the score as cvss3_score
+            # (string, e.g. "9.100"), with cvss2_score as the legacy fallback.
+            detected_cvss: >-
+              {{ (cve_resp.json.data[0].attributes.cvss3_score
+                  | default(cve_resp.json.data[0].attributes.cvss2_score, true)
+                  | default(0.0, true)) | float }}
 
         - name: POST the vulnerability notification to the EDA event stream
           ansible.builtin.uri:
