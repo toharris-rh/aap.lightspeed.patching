@@ -186,6 +186,36 @@ ACT 2 — CVE Detected → Remediate Instantly
 
 ---
 
+### Phase 11 — Auditable Automated CVE Remediation (Insights → EDA → ServiceNow)
+
+**Owner: Eric** · **Tracking: [#84](https://github.com/toharris-rh/aap.lightspeed.patching/issues/84)**
+
+Evolves **ACT 2** into a fully **auditable** flow using the **native Insights → EDA**
+push path (certified `redhat.insights_eda` integration), rather than the
+Insights → SNow INC → Business Rule → EDA path in the demo above. When Insights
+detects a new CVE that **has an automated remediation**, AAP opens an Incident and
+a pre-approved **Standard Change** (from the "Ames - AAP Daily Demo" template /
+"Control01"), runs the **Insights-authored** remediation playbook, proves the fix,
+and leaves an auditor-verifiable trail. **Phase 1 = automated-solution happy path
+only**; the no-solution → Problem-ticket branch is a later phase.
+
+| Slice | Task | Status |
+|-------|------|--------|
+| 1 | Native Insights→EDA trigger: rulebook + event stream + `X-Insight-Token` credential (live-verified) | `[x]` |
+| 2 | `insights_fetch_remediation.yml`: Insights UUID → confirm `remediation==2` → fetch playbook | `[ ]` |
+| 3 | Incident + bidirectional CI link (`cmdb_ci` + `task_ci`) + `snow_log` + `snow_attach` role | `[ ]` |
+| 4 | Standard Change from template (`sn_chg_rest`) + INC↔CHG (`incident.rfc`) + template alignment | `[ ]` |
+| 5 | Run the Insights playbook (dedicated git project: commit → sync → JT run) | `[ ]` |
+| 6 | Proof of fix (staged: local now + Insights "CVE cleared" async) + close-out | `[ ]` |
+| 7 | Auditor `sys_report` + `docs/cve-remediation-audit.md` + skills/CHANGELOG | `[ ]` |
+
+> En-route fixes already landed on the Slice 1 branch: EDA CaC `401` (minted
+> Controller token cleared → basic auth, `load.yml` `failed=0`), ASCII-only CaC
+> descriptions (Python 3.14 latin-1 header crash), and the `X-Insight-Token`
+> event-stream header. Run `load.yml` from a Python 3.11–3.13 venv (not 3.14).
+
+---
+
 ## Open Questions (need answers before Jun 14)
 
 | # | Question | Owner to answer |
