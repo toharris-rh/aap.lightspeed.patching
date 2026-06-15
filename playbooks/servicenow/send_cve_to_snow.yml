@@ -13,7 +13,8 @@
 #   payload on demand — useful for demo resets and testing.
 #
 # Inputs (extra_vars or survey):
-#   target_fqdn    FQDN of the affected host (required)
+#   target_fqdn    FQDN of the affected host (optional; defaults to the first
+#                  host in the lightspeed-patching AAP inventory)
 #   pinned_cve     pin a specific CVE-ID (optional; default: highest-CVSS
 #                  known-exploit CVE, falling back to highest-CVSS overall)
 #
@@ -22,6 +23,7 @@
 #   Lightspeed Patching - Insights      (INSIGHTS_CLIENT_ID/SECRET env vars)
 #   Lightspeed Patching - RH Insights Integration
 #                                       (RH_INSIGHTS_INTEGRATION_PASSWORD env var)
+#   Lightspeed Patching - Controller    (AAP_HOSTNAME/TOKEN for inventory lookup)
 # ============================================================================
 
 - name: Send CVE vulnerability payload to ServiceNow
@@ -35,14 +37,41 @@
     snow_host: "{{ lookup('ansible.builtin.env', 'SN_HOST') }}"
     snow_endpoint: "{{ snow_host }}/api/x_rhtpp_rh_webhook/flow_templates_for_red_hat_insights"
     rh_org_id: "{{ lookup('ansible.builtin.env', 'RH_ORG_ID') }}"
+    aap_host: "{{ lookup('ansible.builtin.env', 'AAP_HOSTNAME') }}"
+    aap_token: "{{ lookup('ansible.builtin.env', 'CONTROLLER_OAUTH_TOKEN') | default(lookup('ansible.builtin.env', 'AAP_TOKEN'), true) }}"
     pinned_cve: ""
+    target_fqdn: ""
 
   tasks:
-    - name: Require target_fqdn
+    # ── Resolve host from AAP inventory if not provided ───────────────────────
+    - name: Look up provisioned host from AAP inventory
+      when: target_fqdn | length == 0
+      ansible.builtin.uri:
+        url: "{{ aap_host }}/api/controller/v2/hosts/?inventory__name=lightspeed-patching"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ aap_token }}"
+        validate_certs: false
+        status_code: 200
+      register: aap_hosts_resp
+      changed_when: false
+
+    - name: Set target_fqdn from AAP inventory
+      when: target_fqdn | length == 0
+      ansible.builtin.set_fact:
+        target_fqdn: "{{ aap_hosts_resp.json.results[0].name }}"
+
+    - name: Fail if no host found
       ansible.builtin.assert:
         that:
-          - target_fqdn | default('') | length > 0
-        fail_msg: "Provide target_fqdn= as an extra_var or survey answer."
+          - target_fqdn | length > 0
+        fail_msg: >-
+          No host found. Provide target_fqdn= or ensure a host exists in the
+          lightspeed-patching AAP inventory.
+
+    - name: Show target host
+      ansible.builtin.debug:
+        msg: "Target host: {{ target_fqdn }}"
 
     # ── Insights bearer token ─────────────────────────────────────────────────
     - name: Obtain Insights bearer token
