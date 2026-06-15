@@ -37,6 +37,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     slices (they depend on the remediation JTs). The exact payload envelope is
     flagged for live verification in the rulebook header.
 
+- **Patched hosts no longer report stale CVEs — refresh Insights after patching.**
+  `patch_rhel.yml` ran `dnf update` but never re-ran `insights-client`, so the
+  Insights vulnerability view stayed frozen at the pre-patch snapshot that
+  `register_rhel.yml` uploads at registration. A freshly-onboarded, fully-patched
+  host therefore showed dozens of phantom CVEs (e.g. openssl CVEs the installed
+  package already fixes), drowning any deliberately-introduced demo CVE in stale
+  noise. Added a best-effort `insights-client` re-upload after the patch + reboot
+  so Insights re-scans the clean, patched state.
+
 ### Fixed (2026-06-14)
 
 - **EDA CaC no longer 401s — `load.yml` runs clean end-to-end.** The
