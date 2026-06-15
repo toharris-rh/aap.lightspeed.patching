@@ -37,27 +37,37 @@
     snow_host: "{{ lookup('ansible.builtin.env', 'SN_HOST') }}"
     snow_endpoint: "{{ snow_host }}/api/x_rhtpp_rh_webhook/flow_templates_for_red_hat_insights"
     rh_org_id: "{{ lookup('ansible.builtin.env', 'RH_ORG_ID') }}"
-    aap_host: "{{ lookup('ansible.builtin.env', 'AAP_HOSTNAME') }}"
-    aap_token: "{{ lookup('ansible.builtin.env', 'CONTROLLER_OAUTH_TOKEN') | default(lookup('ansible.builtin.env', 'AAP_TOKEN'), true) }}"
+    aap_hostname: "{{ lookup('ansible.builtin.env', 'AAP_HOSTNAME') }}"
+    aap_validate_certs: "{{ lookup('ansible.builtin.env', 'AAP_VALIDATE_CERTS') | default('false', true) | bool }}"
     pinned_cve: ""
     target_fqdn: ""
 
   tasks:
     # ── Resolve host from AAP inventory if not provided ───────────────────────
+    - name: Acquire AAP token for inventory lookup
+      when: target_fqdn | length == 0
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../aap_config/tasks/aap_token_acquire.yml"
+
     - name: Look up provisioned host from AAP inventory
       when: target_fqdn | length == 0
       ansible.builtin.uri:
-        url: "{{ aap_host }}/api/controller/v2/hosts/?inventory__name=lightspeed-patching"
+        url: "{{ aap_hostname }}/api/controller/v2/hosts/?inventory__name=lightspeed-patching"
         method: GET
         headers:
-          Authorization: "Bearer {{ aap_token }}"
-        validate_certs: false
+          Authorization: "Bearer {{ lsp_cac_token }}"
+        validate_certs: "{{ aap_validate_certs }}"
         status_code: 200
       register: aap_hosts_resp
       changed_when: false
 
-    - name: Set target_fqdn from AAP inventory
+    - name: Release AAP token
       when: target_fqdn | length == 0
+      ansible.builtin.include_tasks: "{{ playbook_dir }}/../../aap_config/tasks/aap_token_release.yml"
+
+    - name: Set target_fqdn from AAP inventory
+      when:
+        - target_fqdn | length == 0
+        - aap_hosts_resp.json.results | default([]) | length > 0
       ansible.builtin.set_fact:
         target_fqdn: "{{ aap_hosts_resp.json.results[0].name }}"
 
