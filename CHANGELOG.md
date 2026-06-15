@@ -11,6 +11,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   human-readable overview of the Automated CVE Remediation pipeline (what we
   built, what we shipped, key discoveries, open gap, remaining slices 4-7,
   and discussion topics for the Eric/Tony planning meeting).
+- **`docs/snow-driven-cve-remediation-talk-track.md`** — new talk track for
+  the ServiceNow-driven CVE demo path (SE/architect audience). Documents the
+  single-workflow trigger that chains Introduce CVE → Send CVE to ServiceNow,
+  creating a ServiceNow INC that flows via Business Rule → AAP EDA event stream
+  → Remediate CVE Workflow. Includes Mermaid architecture diagram, pre-flight
+  checklist, beat-by-beat demo script, and reset instructions.
+- **`Lightspeed Patching - SNow CVE Demo`** workflow — chains
+  `jt_introduce_cve` (with `skip_eda_trigger: true`) → `jt_send_cve_to_snow`
+  as a single one-click trigger. Added to
+  `aap_config/files/controller_workflow_job_templates.yml` and
+  `workflow_snow_cve_demo_name` to `group_vars/all.yml`.
 - **`playbooks/servicenow/send_cve_to_snow.yml`** — Ansible playbook equivalent
   of `send_cve_to_snow.sh`; queries Insights for CVEs on the provisioned host,
   selects the highest-CVSS known-exploit CVE (fallback to highest-CVSS), and
