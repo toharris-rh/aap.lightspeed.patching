@@ -56,7 +56,7 @@
       delegate_to: localhost
       become: false
       block:
-        - name: Look up CI in {{ ci_resource }} by FQDN
+        - name: Look up CI by FQDN — {{ ci_resource }}
           servicenow.itsm.api_info:
             resource: "{{ ci_resource }}"
             sysparm_query: "fqdn={{ inventory_hostname }}^ORname={{ inventory_hostname }}"

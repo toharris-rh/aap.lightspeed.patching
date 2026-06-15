@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (2026-06-15)
+
+- **ansible-lint `name[template]` violations resolved** — moved Jinja variables
+  to the end of task names in `introduce_cve.yml` and
+  `update_cmdb_correlation_id.yml` so CI lint passes cleanly.
+
 ### Fixed (2026-06-14)
 
 - **Register CMDB CI no longer fails with a recursive template loop** (issue
