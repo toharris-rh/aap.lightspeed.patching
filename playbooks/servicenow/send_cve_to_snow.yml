@@ -134,42 +134,24 @@
         msg: "Insights inventory_id: {{ insights_inventory_id }}"
 
     # ── Query for CVE ─────────────────────────────────────────────────────────
-    - name: Query Insights for CVEs with known exploits
+    - name: Query Insights for top CVEs by CVSS score
       ansible.builtin.uri:
         url: >-
           {{ insights_base }}/api/vulnerability/v1/systems/{{ insights_inventory_id }}/cves?{{
-            ('search=' + (pinned_cve | urlencode) + '&') if pinned_cve | length > 0 else
-            'filter%5Bknown_exploit%5D=1&'
-          }}sort=-cvss3_score&limit=1
+            ('search=' + (pinned_cve | urlencode) + '&') if pinned_cve | length > 0 else ''
+          }}sort=-cvss3_score&limit=10
         method: GET
         headers:
           Authorization: "Bearer {{ insights_bearer }}"
         status_code: 200
         validate_certs: true
-      register: cve_resp_exploit
+      register: cve_resp
       changed_when: false
 
-    - name: Fall back to highest-CVSS CVE if no known-exploit CVEs yet
-      when:
-        - pinned_cve | length == 0
-        - cve_resp_exploit.json.data | default([]) | length == 0
-      ansible.builtin.uri:
-        url: "{{ insights_base }}/api/vulnerability/v1/systems/{{ insights_inventory_id }}/cves?sort=-cvss3_score&limit=1"
-        method: GET
-        headers:
-          Authorization: "Bearer {{ insights_bearer }}"
-        status_code: 200
-        validate_certs: true
-      register: cve_resp_fallback
-      changed_when: false
-
-    - name: Set CVE data from whichever query returned results
+    - name: Set CVE data — prefer known-exploit, fall back to highest CVSS
       ansible.builtin.set_fact:
-        cve_list: >-
-          {{ (cve_resp_exploit.json.data | default([])) if
-             (cve_resp_exploit.json.data | default([]) | length > 0)
-             else (cve_resp_fallback.json.data | default([])) }}
-        used_fallback: "{{ cve_resp_exploit.json.data | default([]) | length == 0 }}"
+        cve_list: "{{ cve_resp.json.data | default([]) }}"
+        used_fallback: false
 
     - name: Fail if no CVEs found for this host
       ansible.builtin.assert:
@@ -177,19 +159,25 @@
           - cve_list | length > 0
         fail_msg: "No CVEs found for {{ _resolved_fqdn }} in Insights. Try again after insights-client uploads."
 
+    - name: Select best CVE — known-exploit preferred, highest CVSS fallback
+      ansible.builtin.set_fact:
+        _selected_cve: >-
+          {{ (cve_list | selectattr('attributes.known_exploit', 'equalto', true) | list | first)
+             if (cve_list | selectattr('attributes.known_exploit', 'equalto', true) | list | length > 0)
+             else cve_list[0] }}
+
     - name: Extract CVE attributes
       ansible.builtin.set_fact:
-        cve_id: "{{ cve_list[0].id }}"
-        cve_cvss: "{{ cve_list[0].attributes.cvss3_score | default(cve_list[0].attributes.cvss2_score) | default(7.0) }}"
-        cve_known_exploit: "{{ cve_list[0].attributes.known_exploit | default(false) | bool }}"
-        cve_has_rule: "{{ (cve_list[0].attributes.rule_id | default('')) | length > 0 }}"
+        cve_id: "{{ _selected_cve.id }}"
+        cve_cvss: "{{ _selected_cve.attributes.cvss3_score | default(_selected_cve.attributes.cvss2_score) | default(7.0) }}"
+        cve_known_exploit: "{{ _selected_cve.attributes.known_exploit | default(false) | bool }}"
+        cve_has_rule: "{{ (_selected_cve.attributes.rule_id | default('')) | length > 0 }}"
 
     - name: Show selected CVE
       ansible.builtin.debug:
         msg: >-
           CVE: {{ cve_id }}  CVSS: {{ cve_cvss }}
           known_exploit: {{ cve_known_exploit }}  has_rule: {{ cve_has_rule }}
-          {{ '(fallback — no known-exploit CVEs yet)' if used_fallback else '' }}
 
     # ── POST payload to ServiceNow ────────────────────────────────────────────
     - name: POST vulnerability payload to ServiceNow
