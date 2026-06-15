@@ -7,7 +7,9 @@ description: >-
   requirements, and the console.redhat.com RBAC roles needed. TRIGGER when the
   user mentions Insights API, console.redhat.com API calls, Insights inventory,
   Insights UUID, CVE lookup, vulnerability API, insights-client, display-name,
-  service account roles on HCC, or the relate_cmdb_to_incident playbook.
+  service account roles on HCC, the relate_cmdb_to_incident playbook, the
+  remediations API / remediation plans, the AAP Insights credential type, or the
+  Insights project mount (scm_type insights).
   SKIP for pure EDA/rulebook wiring (use aap-config) and pure ServiceNow ITSM
   logic (use servicenow).
 ---
@@ -69,8 +71,15 @@ User Access group** (Settings → User Access → Groups) and assign:
 |------|-----------|-----|
 | **Inventory Hosts Viewer** | `inventory:hosts:read` | Look up registered hosts by display_name |
 | **Vulnerability Viewer** | `vulnerability:*:read` | Query CVEs affecting a system |
+| **Remediations user** (or administrator) | `remediations:*:*` | Create remediation plans + let an AAP Insights project sync them |
 
 Add the service account to the group on the **Service Accounts** tab.
+
+> **Basic auth is deprecated** for the HCC / Lightspeed APIs — use a **service
+> account** (client_id/secret → bearer token), not portal username/password.
+> Verify a service account's reach quickly: exchange the token, then
+> `curl -o /dev/null -w "%{http_code}"` against the inventory / vulnerability /
+> remediations endpoints (200 = the role is present, 403 = missing).
 
 ## Insights API endpoints used
 
@@ -120,6 +129,52 @@ Authorization: Bearer <access_token>
 Optional query params:
 - `?cve_name=CVE-2025-38352` — filter to a specific CVE
 - `?remediation=2` — only CVEs with an Ansible remediation playbook available
+
+The per-CVE record carries `attributes.remediation` — **`2` means an Ansible
+remediation playbook is available** (the "automated solution exists" signal that
+drives the Standard-Change-vs-Problem branch).
+
+### Remediations — create a named plan + download its playbook
+
+A **named remediation plan** (not the ephemeral `/playbook` generator) is what an
+AAP Insights project syncs and runs. Create one, then download its playbook YAML
+for an audit attachment:
+
+```
+POST https://console.redhat.com/api/remediations/v1/remediations
+Authorization: Bearer <token>      Content-Type: application/json
+```
+Body (confirmed against the live `RemediationInput` OpenAPI schema):
+```json
+{
+  "name": "<plan name, no leading/trailing whitespace>",
+  "auto_reboot": true,
+  "add": { "issues": [ { "id": "vulnerabilities:<CVE>", "systems": ["<inventory-uuid>"] } ] }
+}
+```
+- `issue.id` pattern: `(advisor|vulnerabilities|ssg|test|patch-advisory|patch-package):...`
+- Returns `{ "id": "<remediation-uuid>", ... }`. A plan can only be created when a
+  pre-built playbook exists (i.e. `remediation == 2`).
+- Download the playbook: `GET /api/remediations/v1/remediations/<id>/playbook`
+  with `Accept: text/vnd.yaml`.
+- The full spec is self-describing: `GET /api/remediations/v1/openapi.json`.
+
+Implemented in `playbooks/insights_fetch_remediation.yml` (Phase 11 / Slice 2).
+
+### Running remediations from AAP — the native Insights mount (no git glue)
+
+AAP has built-in Insights integration — **prefer this over committing generated
+YAML to a git project**:
+
+- **`Insights` credential type** (kind: `insights`) — accepts a **service account**
+  (`client_id`/`client_secret`) or basic auth. Its injectors set env vars
+  `INSIGHTS_CLIENT_ID` / `INSIGHTS_CLIENT_SECRET` (and `INSIGHTS_USER/PASSWORD`),
+  so attaching it to a JT feeds any Insights-API playbook its creds — **this is
+  the resolution to issue #78**. CaC: `cred_insights` in
+  `aap_config/files/controller_credentials.yml`.
+- **`scm_type: insights` project** — syncs the account's saved remediation plans
+  as runnable playbooks; a JT then runs the plan against the inventory. This is
+  Slice 5 of Phase 11 (issue #84).
 
 ## Hostname requirement — always use the public FQDN
 
@@ -181,6 +236,8 @@ credentials. It runs in the Provision-and-Onboard workflow after Register RHEL
 | File | Purpose |
 |------|---------|
 | `playbooks/register_insights.yml` | Installs insights-client, registers with `--display-name` |
+| `playbooks/insights_fetch_remediation.yml` | OAuth2 → UUID → confirm `remediation==2` → create remediation plan → download playbook |
+| `aap_config/files/controller_credentials.yml` | `cred_insights` — built-in `Insights` (service-account) credential, injects `INSIGHTS_CLIENT_ID/SECRET` env vars |
 | `playbooks/servicenow/relate_cmdb_to_incident.yml` | OAuth2 → inventory lookup → CMDB → incident cmdb_ci |
 | `playbooks/servicenow/update_cmdb_correlation_id.yml` | SSH → read machine-id → CMDB CI `correlation_id` |
 | `aap_config/group_vars/all.yml` | `insights_client_id`, `insights_client_secret`, `insights_base_url` |
