@@ -21,6 +21,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   the Table API on this instance — a PATCH is silently ignored — so the source is
   named in the comments instead.)
 
+### Fixed (2026-06-15)
+
+- **CVSS in the self-POSTed CVE event was always 0.0.** `introduce_cve.yml` read
+  `attributes.cvss_score`, which the Insights vulnerability API does not expose;
+  the real field is `cvss3_score` (string, e.g. `"9.100"`), with `cvss2_score` as
+  the legacy fallback. The event now carries the true score (e.g. 9.1 for
+  CVE-2026-45445).
+
 ### Added (2026-06-15)
 
 - **Timely CVE → EDA trigger via self-POST (issue #91).** `introduce_cve.yml`
