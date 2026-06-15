@@ -11,6 +11,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   human-readable overview of the Automated CVE Remediation pipeline (what we
   built, what we shipped, key discoveries, open gap, remaining slices 4-7,
   and discussion topics for the Eric/Tony planning meeting).
+- **`playbooks/servicenow/send_cve_to_snow.yml`** — Ansible playbook equivalent
+  of `send_cve_to_snow.sh`; queries Insights for CVEs on the provisioned host,
+  selects the highest-CVSS known-exploit CVE (fallback to highest-CVSS), and
+  POSTs the vulnerability payload to the ServiceNow Flow Templates endpoint as
+  `rh_insights_integration`. Accepts `target_fqdn` and optional `pinned_cve`.
+  Publishes workflow artifacts: `sent_cve_id`, `sent_cve_cvss`,
+  `sent_cve_known_exploit`, `insights_inventory_id`.
+- **`jt_send_cve_to_snow`** ("Lightspeed Patching - Send CVE to ServiceNow") —
+  JT with survey (`target_fqdn`, `pinned_cve`) and `cred_rh_insights_integration`.
+- **`RH Insights Integration`** custom credential type — injects
+  `RH_INSIGHTS_INTEGRATION_PASSWORD` as an env var.
 
 ### Changed (2026-06-15)
 
