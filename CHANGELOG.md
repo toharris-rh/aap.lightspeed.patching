@@ -11,7 +11,53 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   to the end of task names in `introduce_cve.yml` and
   `update_cmdb_correlation_id.yml` so CI lint passes cleanly.
 
+### Added (2026-06-14)
+
+- **Native Red Hat Insights → EDA CVE trigger (Phase 1, slice 1)** — new
+  `rulebooks/insights_vulnerability_events.yml` listens for Insights
+  vulnerability events (`application == "vulnerability"`, event types
+  `new-cve-cvss` / `new-cve-severity` / `new-cve-security-rule` /
+  `any-cve-known-exploit`) pushed via the console.redhat.com "Event-Driven
+  Ansible" integration, and launches the `Lightspeed Patching - Automated CVE
+  Remediation` workflow.
+  - New standalone EDA **event stream** `Lightspeed Patching - Insights Event
+    Stream` + a `Token Event Stream` credential of the same name
+    (`aap_config/files/eda_event_streams.yml`, `eda_credentials.yml`). Creating
+    it needs no activation, so `load.yml` provisions it and AAP exposes the
+    URL + token to paste into the Insights integration; received events become
+    visible there for capturing the real payload. The credential sets
+    `http_header_key: X-Insight-Token` — the console.redhat.com "Event-Driven
+    Ansible" integration sends the shared token in that header (the certified
+    `redhat.insights_eda` plugin's primary header), not `Authorization`; without
+    it the event stream rejects the test with "Authorization header is missing".
+  - Added `INSIGHTS_EDA_TOKEN` (optional; defaults to `EDA_EVENT_STREAM_TOKEN`)
+    to `docs/dev-environment.sh.example`, and the `eda_insights_*` /
+    `workflow_cve_remediation_name` names + token binding to `group_vars/all.yml`.
+  - The rulebook **activation** and the **workflow object** are wired in later
+    slices (they depend on the remediation JTs). The exact payload envelope is
+    flagged for live verification in the rulebook header.
+
 ### Fixed (2026-06-14)
+
+- **EDA CaC no longer 401s — `load.yml` runs clean end-to-end.** The
+  `ansible.platform.token` mint task auto-returns `ansible_facts.aap_token`,
+  which Ansible sets as a host fact that overrides the empty `aap_token`
+  group_var; the dispatch then used that *Controller* OAuth token as
+  `controller_token` for every module. The Controller API accepts it, but the
+  EDA API rejects Controller tokens with `401 Unauthorized` — the long-standing
+  "EDA is the last failure" (blocked `eda_credentials`, so event streams /
+  activations never applied). `aap_token_acquire.yml` now clears `aap_token`
+  after minting so the dispatch authenticates with `aap_username` /
+  `aap_password` basic auth, which both the Controller and EDA APIs accept.
+  `load.yml` now reports `failed=0` and creates the Insights event stream.
+
+- **ASCII-only descriptions on EDA/token CaC objects** so `load.yml` survives
+  HTTP clients that encode headers as latin-1 (e.g. Python 3.14's `http.client`,
+  which rejects non-ASCII chars with `UnicodeEncodeError`). Replaced em-dashes /
+  arrows in the minted CaC token description (`aap_token_acquire.yml`) and the
+  three EDA credential descriptions (`eda_credentials.yml`) with ASCII
+  equivalents. (Root cause of the load failure is an unsupported interpreter —
+  ansible-core 2.18 on Python 3.14 — but ASCII descriptions are correct regardless.)
 
 - **Register CMDB CI no longer fails with a recursive template loop** (issue
   #80). `register_cmdb_and_relate.yml` defined a self-referential play var

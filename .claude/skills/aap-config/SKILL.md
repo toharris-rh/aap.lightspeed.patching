@@ -42,6 +42,15 @@ ansible-playbook aap_config/load.yml 2>&1 | tee /tmp/load-$(date +%Y%m%d-%H%M%S)
 Success = `PLAY RECAP ... failed=0`. The token is always deleted in the `always`
 block (per repo convention — no stale tokens).
 
+**Runtime — needs Python 3.11–3.13 (not 3.14).** The pinned stack
+(ansible-core 2.18 + the collections in `aap_config/requirements.yml`) does not
+support Python 3.14. On Fedora's system `python3` 3.14 the apply fails with a
+`UnicodeEncodeError` (latin-1 header encoding) and then a spurious EDA `401`.
+Run `load.yml` from a venv on python3.12/3.13 (the collections in
+`~/.ansible/collections` are interpreter-independent and are reused):
+`python3.13 -m venv ~/.venvs/lsp && ~/.venvs/lsp/bin/pip install 'ansible-core==2.18.12'`,
+then `source ~/.venvs/lsp/bin/activate` before the run.
+
 ## `aap_config/files/` — one file per object class
 
 `load.yml` lists these in `vars_files` and the dispatch role applies them in
@@ -64,6 +73,32 @@ EDA is stricter and less forgiving than the controller side. The working
 patterns below are confirmed against `dc1.azure`, `aap.eda.dynatrace`, and
 `aap.eda.dynatrace.push` (sibling repos under `/home/eames/git-repos/`) — when
 something EDA-related breaks, **diff against those repos first.**
+
+### EDA auth — the minted Controller token does NOT work for EDA (401)
+
+**Symptom:** every `controller_*` role applies (`ok=NNN`) but `eda_credentials`
+fails with `AuthError: Failed to authenticate with the instance: 401
+Unauthorized` — so event streams and rulebook activations never apply. This is
+the classic "EDA is the last failure."
+
+**Cause:** `tasks/aap_token_acquire.yml` mints a token with
+`ansible.platform.token`, which **auto-returns `ansible_facts.aap_token`**.
+Ansible promotes that to a host fact that **overrides** the empty `aap_token`
+group_var, and the dispatch passes `aap_token` as `controller_token` to *every*
+module — EDA included. The minted token is a **Controller OAuth token**: the
+Controller API accepts it, but the **EDA API rejects Controller tokens** (401).
+(The `aap_token_acquire.yml` comment about avoiding the `aap_token` *name* —
+issue #61 — is about a different mechanism; the module's `ansible_facts` return
+defeats that intent here.)
+
+**Fix (in place):** after minting, `aap_token_acquire.yml` clears the fact
+(`set_fact: aap_token: ""`) so the dispatch uses `aap_username` / `aap_password`
+**basic auth**, which BOTH the Controller and EDA APIs accept. `cac_token_obj`
+still holds the minted token for cleanup. Confirm basic auth reaches EDA with:
+`curl -sk -u "$AAP_CONTROLLER_USERNAME:$AAP_CONTROLLER_PASSWORD" "${AAP_HOSTNAME%/}/api/eda/v1/event-streams/"`
+(200 = good). An event stream is a standalone object — it creates with no
+activation, and AAP then exposes its inbound URL + token for the external
+integration (e.g. the console.redhat.com "Event-Driven Ansible" integration).
 
 ### Rulebook activations (`files/eda_rulebook_activations.yml`)
 

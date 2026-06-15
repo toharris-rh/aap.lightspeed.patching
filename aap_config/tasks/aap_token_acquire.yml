@@ -21,7 +21,7 @@
     aap_username: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_USERNAME') | default('admin', true) }}"
     aap_password: "{{ lookup('ansible.builtin.env', 'AAP_CONTROLLER_PASSWORD') }}"
     aap_validate_certs: "{{ aap_validate_certs }}"
-    description: "lightspeed-patching CaC — auto-managed, deleted in always"
+    description: "lightspeed-patching CaC - auto-managed, deleted in always"
     scope: "{{ cac_token_scope | default('write') }}"
     state: present
   register: cac_token
@@ -32,4 +32,18 @@
     lsp_cac_token: "{{ cac_token.ansible_facts.aap_token.token }}"
     cac_token_minted: true
     cac_token_obj: "{{ cac_token.ansible_facts.aap_token }}"
+  when: cac_token_env | length == 0
+
+# ansible.platform.token auto-returns `ansible_facts.aap_token`, which Ansible
+# sets as a host fact that OVERRIDES the empty `aap_token` group_var. The
+# dispatch then passes it as `controller_token` to every module. The minted
+# token is a *Controller* OAuth token: the Controller API accepts it, but the
+# EDA API rejects it (401 on eda_credentials / eda_event_streams) — the
+# long-standing "EDA is the last failure". Clear the fact so the dispatch
+# authenticates with aap_username/aap_password basic auth, which BOTH the
+# Controller and EDA APIs accept. cac_token_obj still holds the minted token for
+# cleanup in the always block.
+- name: Clear the minted token from aap_token so EDA auth uses basic auth
+  ansible.builtin.set_fact:
+    aap_token: ""
   when: cac_token_env | length == 0
