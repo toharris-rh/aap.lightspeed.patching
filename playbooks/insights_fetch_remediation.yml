@@ -29,10 +29,11 @@
 # resolution to issue #78). The service account needs Inventory Hosts Viewer,
 # Vulnerability Viewer, AND Remediations access on console.redhat.com.
 #
-# NOTE (live-verify): the create-plan request body (name + add.issues +
-# auto_reboot) and the issue-id format are pinned to the documented shape; the
-# issue-id "vulnerabilities:<cve>" is confirmed, the wrapper is verified on the
-# first real run.
+# The create-plan request body (name + auto_reboot + add.issues[].{id,systems})
+# is confirmed against the live Remediations OpenAPI `RemediationInput` schema
+# (2026-06-15). The issue id format "vulnerabilities:<CVE>" matches the schema's
+# IssueId pattern. End-to-end run against a real host with an introduced CVE is
+# the remaining verification.
 # ============================================================================
 
 - name: Create the Insights remediation plan for a CVE on a host
