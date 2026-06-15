@@ -74,6 +74,14 @@ export EDA_EVENT_STREAM_TOKEN=""
 # Generate: openssl rand -hex 32
 export INSIGHTS_EDA_TOKEN=""
 
+# POST URL of the native Insights → EDA event stream. Used by introduce_cve.yml
+# to self-POST the CVE notification so the remediation workflow fires immediately
+# (issue #91 — Insights' own notification sweep is ~daily and cannot be triggered
+# on demand). Copy it from AAP → Automation Decisions → Event Streams →
+# "Lightspeed Patching - Insights Event Stream" → Details. Per-deployment, not a
+# secret. e.g. https://<aap-host>/eda-event-streams/api/eda/v1/external_event_stream/<uuid>/post/
+export INSIGHTS_EDA_EVENT_STREAM_URL=""
+
 # ============================================================================
 # Red Hat Insights / Hybrid Cloud Console — direct API calls
 # (inventory + vulnerability lookups, remediation plans).

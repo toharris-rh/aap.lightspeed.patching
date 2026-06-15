@@ -93,6 +93,11 @@ insights_base_url: "{{ lookup('ansible.builtin.env', 'INSIGHTS_BASE_URL') | defa
 insights_client_id: "{{ lookup('ansible.builtin.env', 'INSIGHTS_CLIENT_ID') | default('', true) }}"
 insights_client_secret: "{{ lookup('ansible.builtin.env', 'INSIGHTS_CLIENT_SECRET') | default('', true) }}"
 
+# POST URL of the native Insights → EDA event stream. introduce_cve.yml self-POSTs
+# the CVE notification here so the workflow fires immediately (issue #91). Copy it
+# from the event stream Details page; per-deployment, not a secret.
+insights_eda_event_stream_url: "{{ lookup('ansible.builtin.env', 'INSIGHTS_EDA_EVENT_STREAM_URL') | default('', true) }}"
+
 # --- EDA object names --------------------------------------------------------
 eda_project_name: "Lightspeed Patching - EDA"
 eda_controller_credential: "Lightspeed Patching - EDA Controller"
