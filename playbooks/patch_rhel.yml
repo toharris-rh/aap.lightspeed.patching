@@ -66,6 +66,21 @@
         reboot_timeout: 300
       when: dnf_result.changed
 
+    # Re-upload to Red Hat Insights so its vulnerability view reflects the
+    # PATCHED package state. register_rhel.yml uploads the pre-patch snapshot at
+    # registration; without this refresh Insights keeps reporting CVEs that the
+    # dnf update already fixed, leaving a misleadingly vulnerable baseline (and
+    # drowning a deliberately-introduced demo CVE in stale noise). Best-effort:
+    # a refresh hiccup must not fail onboarding (the host is already registered).
+    # Insights re-runs the vulnerability analysis server-side a few minutes after
+    # this upload.
+    - name: Refresh Red Hat Insights so it re-scans the patched state
+      ansible.builtin.command:
+        cmd: insights-client
+      register: insights_refresh
+      changed_when: false
+      failed_when: false
+
     - name: Publish patched hosts as workflow artifact
       ansible.builtin.set_stats:
         data:
