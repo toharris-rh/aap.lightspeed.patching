@@ -59,7 +59,7 @@ export SN_PASSWORD=""
 # ServiceNow user (user_name) recorded as 'Managed by' on CMDB CIs created by
 # register_cmdb_and_relate.yml. Resolved to a sys_user sys_id at runtime.
 # Defaults to 'hercules' if unset. Set to your ServiceNow user_name.
-export CMDB_MANAGED_BY="hercules"
+export CMDB_MANAGED_BY=""              # your ServiceNow user_name
 export RH_INSIGHTS_INTEGRATION_PASSWORD=""  # shared ServiceNow rh_insights_integration user password
 
 # EDA Event Stream bearer token (matched pair — same value in:
