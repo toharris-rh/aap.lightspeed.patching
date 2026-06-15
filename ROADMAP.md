@@ -202,8 +202,8 @@ only**; the no-solution → Problem-ticket branch is a later phase.
 | Slice | Task | Status |
 |-------|------|--------|
 | 1 | Native Insights→EDA trigger: rulebook + event stream + `X-Insight-Token` credential (live-verified) | `[x]` |
-| 2 | `insights_fetch_remediation.yml`: Insights UUID → confirm `remediation==2` → fetch playbook | `[ ]` |
-| 3 | Incident + bidirectional CI link (`cmdb_ci` + `task_ci`) + `snow_log` + `snow_attach` role | `[ ]` |
+| 2 | `insights_fetch_remediation.yml`: Insights UUID → confirm `remediation==2` → fetch playbook | `[x]` |
+| 3 | Incident + bidirectional CI link (`cmdb_ci` + `task_ci`) + `snow_log` + playbook in work notes | `[x]` |
 | 4 | Standard Change from template (`sn_chg_rest`) + INC↔CHG (`incident.rfc`) + template alignment | `[ ]` |
 | 5 | Run the Insights playbook (dedicated git project: commit → sync → JT run) | `[ ]` |
 | 6 | Proof of fix (staged: local now + Insights "CVE cleared" async) + close-out | `[ ]` |

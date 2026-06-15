@@ -13,6 +13,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added (2026-06-15)
 
+- **CVE incident with bidirectional CI link (Phase 11 / Slice 3, issue #84).**
+  New `playbooks/servicenow/create_cve_incident.yml`: creates a ServiceNow
+  Incident when Insights detects a CVE with an automated remediation. Sets
+  `cmdb_ci` at creation (not post-hoc) and links the CI via the `task_ci`
+  junction table (Affected CIs). Posts the Insights-authored remediation
+  playbook YAML as a work note (matching the native integration pattern on
+  CTASK0011747) and a summary work note. Publishes `cve_incident_number` /
+  `cve_incident_sys_id` for the downstream workflow.
+  - New `SNow Create CVE Incident` job template in CaC.
+
 - **Demo talk track + architecture diagram for the auditable CVE remediation
   flow** (issue #84). New `docs/cve-remediation-talk-track.md`: presenter script
   (beat by beat), pre-flight checklist, the GRC/control story (Control01), a
