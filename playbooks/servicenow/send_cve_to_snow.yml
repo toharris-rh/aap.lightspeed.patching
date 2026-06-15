@@ -1,0 +1,199 @@
+---
+# ============================================================================
+# playbooks/servicenow/send_cve_to_snow.yml
+# ============================================================================
+# Queries Red Hat Insights for CVEs on a managed host and POSTs a vulnerability
+# payload directly to the ServiceNow Flow Templates for Red Hat Insights
+# endpoint to create an incident.
+#
+# WHY THIS EXISTS:
+#   The native Insights→ServiceNow integration only fires once per CVE per
+#   account, so re-provisioned VMs don't trigger new incidents for CVEs already
+#   seen. This playbook bypasses that deduplication by crafting and sending the
+#   payload on demand — useful for demo resets and testing.
+#
+# Inputs (extra_vars or survey):
+#   target_fqdn    FQDN of the affected host (required)
+#   pinned_cve     pin a specific CVE-ID (optional; default: highest-CVSS
+#                  known-exploit CVE, falling back to highest-CVSS overall)
+#
+# Credentials required on the JT:
+#   Lightspeed Patching - ServiceNow    (SN_HOST env var)
+#   Lightspeed Patching - Insights      (INSIGHTS_CLIENT_ID/SECRET env vars)
+#   Lightspeed Patching - RH Insights Integration
+#                                       (RH_INSIGHTS_INTEGRATION_PASSWORD env var)
+# ============================================================================
+
+- name: Send CVE vulnerability payload to ServiceNow
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    insights_base: "{{ lookup('ansible.builtin.env', 'INSIGHTS_BASE_URL') | default('https://console.redhat.com', true) }}"
+    insights_sso_url: "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token"
+    snow_host: "{{ lookup('ansible.builtin.env', 'SN_HOST') }}"
+    snow_endpoint: "{{ snow_host }}/api/x_rhtpp_rh_webhook/flow_templates_for_red_hat_insights"
+    rh_org_id: "{{ lookup('ansible.builtin.env', 'RH_ORG_ID') }}"
+    pinned_cve: ""
+
+  tasks:
+    - name: Require target_fqdn
+      ansible.builtin.assert:
+        that:
+          - target_fqdn | default('') | length > 0
+        fail_msg: "Provide target_fqdn= as an extra_var or survey answer."
+
+    # ── Insights bearer token ─────────────────────────────────────────────────
+    - name: Obtain Insights bearer token
+      ansible.builtin.uri:
+        url: "{{ insights_sso_url }}"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          grant_type: client_credentials
+          client_id: "{{ lookup('ansible.builtin.env', 'INSIGHTS_CLIENT_ID') }}"
+          client_secret: "{{ lookup('ansible.builtin.env', 'INSIGHTS_CLIENT_SECRET') }}"
+        status_code: 200
+        validate_certs: true
+      register: insights_token_resp
+      no_log: true
+
+    - name: Store bearer token
+      ansible.builtin.set_fact:
+        insights_bearer: "{{ insights_token_resp.json.access_token }}"
+      no_log: true
+
+    # ── Resolve Insights inventory_id ─────────────────────────────────────────
+    - name: Look up host in Insights inventory by display_name
+      ansible.builtin.uri:
+        url: "{{ insights_base }}/api/inventory/v1/hosts?display_name={{ target_fqdn | urlencode }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ insights_bearer }}"
+        status_code: 200
+        validate_certs: true
+      register: inventory_resp
+      changed_when: false
+
+    - name: Fail if host not found in Insights
+      ansible.builtin.assert:
+        that:
+          - inventory_resp.json.total > 0
+        fail_msg: >-
+          Host '{{ target_fqdn }}' not found in Insights inventory.
+          Ensure insights-client has registered with --display-name={{ target_fqdn }}.
+
+    - name: Store Insights inventory_id
+      ansible.builtin.set_fact:
+        insights_inventory_id: "{{ inventory_resp.json.results[0].id }}"
+
+    - name: Show Insights inventory_id
+      ansible.builtin.debug:
+        msg: "Insights inventory_id: {{ insights_inventory_id }}"
+
+    # ── Query for CVE ─────────────────────────────────────────────────────────
+    - name: Query Insights for CVEs with known exploits
+      ansible.builtin.uri:
+        url: >-
+          {{ insights_base }}/api/vulnerability/v1/systems/{{ insights_inventory_id }}/cves?{{
+            ('search=' + (pinned_cve | urlencode) + '&') if pinned_cve | length > 0 else
+            'filter%5Bknown_exploit%5D=1&'
+          }}sort=-cvss3_score&limit=1
+        method: GET
+        headers:
+          Authorization: "Bearer {{ insights_bearer }}"
+        status_code: 200
+        validate_certs: true
+      register: cve_resp_exploit
+      changed_when: false
+
+    - name: Fall back to highest-CVSS CVE if no known-exploit CVEs yet
+      when:
+        - pinned_cve | length == 0
+        - cve_resp_exploit.json.data | default([]) | length == 0
+      ansible.builtin.uri:
+        url: "{{ insights_base }}/api/vulnerability/v1/systems/{{ insights_inventory_id }}/cves?sort=-cvss3_score&limit=1"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ insights_bearer }}"
+        status_code: 200
+        validate_certs: true
+      register: cve_resp_fallback
+      changed_when: false
+
+    - name: Set CVE data from whichever query returned results
+      ansible.builtin.set_fact:
+        cve_list: >-
+          {{ (cve_resp_exploit.json.data | default([])) if
+             (cve_resp_exploit.json.data | default([]) | length > 0)
+             else (cve_resp_fallback.json.data | default([])) }}
+        used_fallback: "{{ cve_resp_exploit.json.data | default([]) | length == 0 }}"
+
+    - name: Fail if no CVEs found for this host
+      ansible.builtin.assert:
+        that:
+          - cve_list | length > 0
+        fail_msg: "No CVEs found for {{ target_fqdn }} in Insights. Try again after insights-client uploads."
+
+    - name: Extract CVE attributes
+      ansible.builtin.set_fact:
+        cve_id: "{{ cve_list[0].id }}"
+        cve_cvss: "{{ cve_list[0].attributes.cvss3_score | default(cve_list[0].attributes.cvss2_score) | default(7.0) }}"
+        cve_known_exploit: "{{ cve_list[0].attributes.known_exploit | default(false) | bool }}"
+        cve_has_rule: "{{ (cve_list[0].attributes.rule_id | default('')) | length > 0 }}"
+
+    - name: Show selected CVE
+      ansible.builtin.debug:
+        msg: >-
+          CVE: {{ cve_id }}  CVSS: {{ cve_cvss }}
+          known_exploit: {{ cve_known_exploit }}  has_rule: {{ cve_has_rule }}
+          {{ '(fallback — no known-exploit CVEs yet)' if used_fallback else '' }}
+
+    # ── POST payload to ServiceNow ────────────────────────────────────────────
+    - name: POST vulnerability payload to ServiceNow
+      ansible.builtin.uri:
+        url: "{{ snow_endpoint }}"
+        method: POST
+        url_username: rh_insights_integration
+        url_password: "{{ lookup('ansible.builtin.env', 'RH_INSIGHTS_INTEGRATION_PASSWORD') }}"
+        force_basic_auth: true
+        body_format: json
+        body:
+          version: "v1.1.0"
+          bundle: "rhel"
+          application: "vulnerability"
+          event_type: "{{ 'any-cve-known-exploit' if cve_known_exploit else 'new-cve-cvss' }}"
+          timestamp: "{{ lookup('pipe', 'date -u +\"%Y-%m-%dT%H:%M:%S.%6NZ\"') }}"
+          context:
+            inventory_id: "{{ insights_inventory_id }}"
+            display_name: "{{ target_fqdn }}"
+            host_url: "{{ insights_base }}/insights/inventory/{{ insights_inventory_id }}"
+          events:
+            - metadata: {}
+              payload:
+                reported_cve: "{{ cve_id }}"
+                cvss_score: "{{ cve_cvss | float }}"
+                has_rule: "{{ cve_has_rule | bool }}"
+                known_exploit: "{{ cve_known_exploit | bool }}"
+                impact_id: 5
+          org_id: "{{ rh_org_id }}"
+        status_code: [200, 201, 202]
+        validate_certs: true
+      register: snow_resp
+      no_log: false
+
+    - name: Confirm incident will be created
+      ansible.builtin.debug:
+        msg: >-
+          Payload accepted by ServiceNow (HTTP {{ snow_resp.status }}).
+          CVE {{ cve_id }} sent for host {{ target_fqdn }}.
+          Check ServiceNow for a new incident from rh_insights_integration.
+
+    - name: Publish CVE details as workflow artifacts
+      ansible.builtin.set_stats:
+        data:
+          sent_cve_id: "{{ cve_id }}"
+          sent_cve_cvss: "{{ cve_cvss }}"
+          sent_cve_known_exploit: "{{ cve_known_exploit }}"
+          insights_inventory_id: "{{ insights_inventory_id }}"

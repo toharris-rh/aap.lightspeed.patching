@@ -302,6 +302,36 @@ controller_templates:
           required: false
           default: ""
 
+  # ── Send CVE payload to ServiceNow (bypasses one-per-account dedup) ─────────
+  - name: "{{ jt_send_cve_to_snow }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ control_inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/servicenow/send_cve_to_snow.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_servicenow }}"
+      - "{{ cred_insights }}"
+      - "{{ cred_rh_insights_integration }}"
+    survey_enabled: true
+    survey_spec:
+      name: ""
+      description: "Send a CVE vulnerability payload to ServiceNow"
+      spec:
+        - question_name: Target host FQDN
+          question_description: "FQDN of the affected host (must be registered in Insights)"
+          variable: target_fqdn
+          type: text
+          required: true
+          default: ""
+        - question_name: Pin a specific CVE
+          question_description: "Leave blank to use the highest-CVSS known-exploit CVE from Insights"
+          variable: pinned_cve
+          type: text
+          required: false
+          default: ""
+
   # ── CVE Incident (proactive — Insights-triggered) ──────────────────────────
   - name: "{{ jt_snow_create_cve_inc }}"
     job_type: run
