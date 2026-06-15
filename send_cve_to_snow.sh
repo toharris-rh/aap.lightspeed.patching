@@ -92,24 +92,26 @@ import sys,json
 d=json.load(sys.stdin)
 r=d.get('data',[])
 if not r:
-    print('NONE|||')
+    print('NONE||||')
     sys.exit(0)
 a=r[0].get('attributes',{})
 cve_id=r[0].get('id','')
 cvss=a.get('cvss3_score','') or a.get('cvss2_score','') or '7.0'
 has_rule=str(a.get('rule_id','') != '').lower()
-print(f'{cve_id}|{cvss}|{has_rule}')
+known_exploit=str(bool(a.get('known_exploit', False))).lower()
+print(f'{cve_id}|{cvss}|{has_rule}|{known_exploit}')
 ")
 
 CVE_ID=$(echo "$CVE_DATA" | cut -d'|' -f1)
 CVSS_SCORE=$(echo "$CVE_DATA" | cut -d'|' -f2)
 HAS_RULE=$(echo "$CVE_DATA" | cut -d'|' -f3)
+KNOWN_EXPLOIT=$(echo "$CVE_DATA" | cut -d'|' -f4)
 
 if [ "$CVE_ID" = "NONE" ] || [ -z "$CVE_ID" ]; then
   echo "ERROR: No CVEs found for this host in Insights."
   exit 1
 fi
-echo "  CVE: ${CVE_ID}  CVSS: ${CVSS_SCORE}  has_rule: ${HAS_RULE}"
+echo "  CVE: ${CVE_ID}  CVSS: ${CVSS_SCORE}  has_rule: ${HAS_RULE}  known_exploit: ${KNOWN_EXPLOIT}"
 
 # ── Step 5: POST the vulnerability payload to ServiceNow ─────────────────────
 echo "[5/5] POSTing vulnerability payload to ServiceNow..."
@@ -121,7 +123,7 @@ payload = {
     'version': 'v1.1.0',
     'bundle': 'rhel',
     'application': 'vulnerability',
-    'event_type': 'any-cve-known-exploit',
+    'event_type': 'any-cve-known-exploit' if '${KNOWN_EXPLOIT:-false}' == 'true' else 'new-cve-cvss',
     'timestamp': '${TIMESTAMP}',
     'context': {
         'inventory_id': '${INVENTORY_ID}',
@@ -134,7 +136,7 @@ payload = {
             'reported_cve': '${CVE_ID}',
             'cvss_score': ${CVSS_SCORE:-7.0},
             'has_rule': '${HAS_RULE:-false}' == 'true',
-            'known_exploit': True,
+            'known_exploit': '${KNOWN_EXPLOIT:-false}' == 'true',
             'impact_id': 5
         }
     }],
