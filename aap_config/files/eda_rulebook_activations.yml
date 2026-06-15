@@ -37,3 +37,24 @@ eda_rulebook_activations:
     extra_vars: |
       my_organization: {{ my_organization }}
     enabled: true
+
+  # Native Red Hat Insights -> EDA: consumes the Insights event stream and runs
+  # rulebooks/insights_vulnerability_events.yml, which launches the Automated CVE
+  # Remediation workflow on a matching new-cve-* vulnerability event (issue #98).
+  - name: "{{ eda_insights_activation_name }}"
+    description: "Listens for native Red Hat Insights CVE events and launches the Automated CVE Remediation workflow"
+    project: "{{ eda_project_name }}"
+    rulebook: "insights_vulnerability_events.yml"
+    decision_environment: "{{ eda_decision_environment }}"
+    organization: "{{ my_organization }}"
+    event_streams:
+      - event_stream: "{{ eda_insights_event_stream_name }}"
+        source_name: "__SOURCE_1"
+    # run_workflow_template needs a RH AAP credential (gotcha 2); the rulebook's
+    # action also references {{ my_organization }} (gotcha 3).
+    eda_credentials:
+      - "{{ eda_controller_credential }}"
+    # YAML string, not a dict — see the note on the catalog activation (issue #17).
+    extra_vars: |
+      my_organization: {{ my_organization }}
+    enabled: true

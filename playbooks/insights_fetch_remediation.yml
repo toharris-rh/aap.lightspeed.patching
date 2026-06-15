@@ -151,6 +151,7 @@
           ansible.builtin.set_stats:
             data:
               insights_uuid: "{{ insights_uuid }}"
+              host_fqdn: "{{ fetch_host }}"
               reported_cve: "{{ fetch_cve }}"
               has_automated_remediation: false
               cve_synopsis: "{{ cve_record.attributes.synopsis | default('') }}"
@@ -210,6 +211,7 @@
       ansible.builtin.set_stats:
         data:
           insights_uuid: "{{ insights_uuid }}"
+          host_fqdn: "{{ fetch_host }}"
           reported_cve: "{{ fetch_cve }}"
           has_automated_remediation: true
           cve_synopsis: "{{ cve_record.attributes.synopsis | default('') }}"

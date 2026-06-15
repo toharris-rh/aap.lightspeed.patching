@@ -312,3 +312,6 @@ controller_templates:
     execution_environment: "{{ my_execution_environment }}"
     credentials:
       - "{{ cred_servicenow }}"
+    # Accept the workflow's launch vars + fetch_remediation set_stats artifacts
+    # (has_automated_remediation, reported_cve, host_fqdn, cve_*, remediation_*).
+    ask_variables_on_launch: true
