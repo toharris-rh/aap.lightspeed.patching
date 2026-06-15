@@ -93,6 +93,11 @@ insights_base_url: "{{ lookup('ansible.builtin.env', 'INSIGHTS_BASE_URL') | defa
 insights_client_id: "{{ lookup('ansible.builtin.env', 'INSIGHTS_CLIENT_ID') | default('', true) }}"
 insights_client_secret: "{{ lookup('ansible.builtin.env', 'INSIGHTS_CLIENT_SECRET') | default('', true) }}"
 
+# ServiceNow rh_insights_integration user — the shared integration account the
+# "Flow Templates for Red Hat Insights" scoped app authenticates as. Used by
+# send_cve_to_snow.yml to bypass the native one-per-account deduplication.
+rh_insights_integration_password: "{{ lookup('ansible.builtin.env', 'RH_INSIGHTS_INTEGRATION_PASSWORD') }}"
+
 # POST URL of the native Insights → EDA event stream. introduce_cve.yml self-POSTs
 # the CVE notification here so the workflow fires immediately (issue #91). Copy it
 # from the event stream Details page; per-deployment, not a secret.
@@ -146,6 +151,7 @@ cred_servicenow: "Lightspeed Patching - ServiceNow"
 cred_rh_cdn: "Lightspeed Patching - Red Hat CDN"
 cred_insights: "Lightspeed Patching - Insights"
 cred_insights_api: "Lightspeed Patching - Insights API"
+cred_rh_insights_integration: "Lightspeed Patching - RH Insights Integration"
 
 # Job template names
 jt_provision: "Lightspeed Patching - Provision VM (AWS)"
@@ -158,6 +164,7 @@ jt_patch_rhel: "Lightspeed Patching - Patch RHEL"
 jt_introduce_cve: "Lightspeed Patching - Introduce CVE (Demo Setup)"
 jt_remediate_cve: "Lightspeed Patching - Remediate CVE"
 jt_insights_fetch_remediation: "Lightspeed Patching - Fetch Insights Remediation"
+jt_send_cve_to_snow: "Lightspeed Patching - Send CVE to ServiceNow"
 jt_snow_notice_started: "Lightspeed Patching - SNow Notice Started"
 jt_snow_notice_provision: "Lightspeed Patching - SNow Notice Provision Started"
 jt_snow_update_ritm_success: "Lightspeed Patching - SNow Update RITM (success)"

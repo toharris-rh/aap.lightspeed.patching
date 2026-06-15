@@ -60,6 +60,7 @@ export SN_PASSWORD=""
 # register_cmdb_and_relate.yml. Resolved to a sys_user sys_id at runtime.
 # Defaults to 'hercules' if unset. e.g. hercules (Eric) or toharris (Tony).
 export CMDB_MANAGED_BY="hercules"
+export RH_INSIGHTS_INTEGRATION_PASSWORD=""  # shared ServiceNow rh_insights_integration user password
 
 # EDA Event Stream bearer token (matched pair — same value in:
 #   1. AAP EDA event-stream credential
