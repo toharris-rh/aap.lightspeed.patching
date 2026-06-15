@@ -1,0 +1,219 @@
+---
+# ============================================================================
+# playbooks/insights_fetch_remediation.yml
+# ============================================================================
+# Phase 11 / Slice 2 — given an affected host FQDN and a CVE id (from the
+# Insights -> EDA event), this playbook:
+#   1. Exchanges Insights service-account creds for a bearer token
+#   2. Resolves the host's Insights inventory UUID (by display_name)
+#   3. Queries the vulnerability service and decides whether an AUTOMATED
+#      remediation exists (attributes.remediation == 2 → an Ansible remediation
+#      playbook is available)
+#   4. When available, CREATES a named Insights **remediation plan** for the
+#      CVE + system (POST /api/remediations/v1/remediations). A saved plan is
+#      what an AAP **Insights project** (scm_type: insights) syncs and runs —
+#      so Slice 5 mounts Insights natively instead of git-committing YAML.
+#   5. Downloads the plan's playbook YAML (for the ServiceNow audit attachment)
+#   6. Publishes everything downstream via set_stats.
+#
+# Phase 1 scope is the automated-solution HAPPY PATH. When no automated
+# remediation exists the play ends cleanly with has_automated_remediation=false;
+# the "no solution -> Problem ticket" branch is a FUTURE phase (issue #84).
+#
+# Inputs (extra_vars, typically from the EDA event / workflow):
+#   affected_host   host FQDN (Insights display_name). Falls back to host_fqdn.
+#   reported_cve    e.g. CVE-2025-12345.             Falls back to cve_id.
+#
+# Insights auth: the AAP "Insights" credential (service account) injects
+# INSIGHTS_CLIENT_ID / INSIGHTS_CLIENT_SECRET as env vars (this is also the
+# resolution to issue #78). The service account needs Inventory Hosts Viewer,
+# Vulnerability Viewer, AND Remediations access on console.redhat.com.
+#
+# NOTE (live-verify): the create-plan request body (name + add.issues +
+# auto_reboot) and the issue-id format are pinned to the documented shape; the
+# issue-id "vulnerabilities:<cve>" is confirmed, the wrapper is verified on the
+# first real run.
+# ============================================================================
+
+- name: Create the Insights remediation plan for a CVE on a host
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    insights_base: "{{ lookup('ansible.builtin.env', 'INSIGHTS_BASE_URL') | default('https://console.redhat.com', true) }}"
+    insights_sso_url: "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token"
+    fetch_host: "{{ affected_host | default(host_fqdn | default('')) }}"
+    fetch_cve: "{{ reported_cve | default(cve_id | default('')) }}"
+    remediation_plan_name: "Lightspeed Patching - {{ fetch_cve }} on {{ fetch_host }}"
+    remediation_playbook_dir: "{{ lookup('ansible.builtin.env', 'REMEDIATION_PLAYBOOK_DIR') | default('/tmp', true) }}"
+
+  tasks:
+    - name: Require an affected host and a CVE id
+      ansible.builtin.assert:
+        that:
+          - fetch_host | length > 0
+          - fetch_cve | length > 0
+        fail_msg: >-
+          Provide affected_host=<fqdn> (or host_fqdn) and reported_cve=<CVE-...>
+          (or cve_id) as extra_vars.
+
+    # ── Insights bearer token ────────────────────────────────────────────────
+    - name: Obtain Insights bearer token (client_credentials)
+      ansible.builtin.uri:
+        url: "{{ insights_sso_url }}"
+        method: POST
+        body_format: form-urlencoded
+        body:
+          grant_type: client_credentials
+          client_id: "{{ lookup('ansible.builtin.env', 'INSIGHTS_CLIENT_ID') }}"
+          client_secret: "{{ lookup('ansible.builtin.env', 'INSIGHTS_CLIENT_SECRET') }}"
+        status_code: 200
+        validate_certs: true
+      register: insights_token_resp
+      no_log: true
+
+    - name: Store bearer token
+      ansible.builtin.set_fact:
+        insights_bearer: "{{ insights_token_resp.json.access_token }}"
+      no_log: true
+
+    # ── Resolve the Insights inventory UUID ──────────────────────────────────
+    - name: Look up the host in Insights inventory by display_name
+      ansible.builtin.uri:
+        url: "{{ insights_base }}/api/inventory/v1/hosts?display_name={{ fetch_host | urlencode }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ insights_bearer }}"
+        return_content: true
+        status_code: 200
+        validate_certs: true
+      register: inventory_resp
+      changed_when: false
+      until: inventory_resp.json.total | default(0) | int > 0
+      retries: 20
+      delay: 15
+
+    - name: Store the Insights system UUID
+      ansible.builtin.set_fact:
+        insights_uuid: "{{ inventory_resp.json.results[0].id }}"
+
+    # ── Decide: is an automated remediation available for this CVE? ──────────
+    - name: Query the vulnerability service for this CVE on this system
+      ansible.builtin.uri:
+        url: "{{ insights_base }}/api/vulnerability/v1/systems/{{ insights_uuid }}/cves?cve_name={{ fetch_cve | urlencode }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ insights_bearer }}"
+        return_content: true
+        status_code: 200
+        validate_certs: true
+      register: vuln_resp
+      changed_when: false
+      # Insights re-scans lag a freshly introduced CVE; wait for it to appear.
+      until: vuln_resp.json.data | default([]) | length > 0
+      retries: 30
+      delay: 20
+
+    - name: Capture the CVE record + remediation availability
+      ansible.builtin.set_fact:
+        cve_record: "{{ vuln_resp.json.data[0] }}"
+        has_automated_remediation: "{{ (vuln_resp.json.data[0].attributes.remediation | default(0) | int) == 2 }}"
+
+    - name: Summarize the decision
+      ansible.builtin.debug:
+        msg: >-
+          {{ fetch_cve }} on {{ fetch_host }} ({{ insights_uuid }}):
+          remediation={{ cve_record.attributes.remediation | default('n/a') }}
+          automated={{ has_automated_remediation }}
+          synopsis="{{ cve_record.attributes.synopsis | default('') }}"
+
+    # ── No automated solution → stop cleanly (Problem branch is future) ──────
+    - name: "Publish 'no automated remediation' and end (Problem branch is future)"
+      when: not (has_automated_remediation | bool)
+      block:
+        - name: Note the missing automated remediation
+          ansible.builtin.debug:
+            msg: >-
+              No automated Ansible remediation for {{ fetch_cve }} on {{ fetch_host }}.
+              The 'no solution -> Problem ticket' branch is a future phase (issue #84).
+        - name: Publish decision artifacts
+          ansible.builtin.set_stats:
+            data:
+              insights_uuid: "{{ insights_uuid }}"
+              reported_cve: "{{ fetch_cve }}"
+              has_automated_remediation: false
+              cve_synopsis: "{{ cve_record.attributes.synopsis | default('') }}"
+              cve_description: "{{ cve_record.attributes.description | default('') }}"
+        - name: End the play (no remediation plan to create)
+          ansible.builtin.meta: end_play
+
+    # ── Create the named Insights remediation plan ───────────────────────────
+    # A SAVED plan is what the AAP Insights project (scm_type: insights) syncs
+    # and runs in Slice 5 — the native mount, no git glue.
+    - name: Create the Insights remediation plan
+      ansible.builtin.uri:
+        url: "{{ insights_base }}/api/remediations/v1/remediations"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ insights_bearer }}"
+        body_format: json
+        body:
+          name: "{{ remediation_plan_name }}"
+          auto_reboot: true
+          add:
+            issues:
+              - id: "vulnerabilities:{{ fetch_cve }}"
+                systems:
+                  - "{{ insights_uuid }}"
+        status_code: [200, 201]
+        return_content: true
+        validate_certs: true
+      register: remediation_create
+      changed_when: true
+
+    - name: Store the remediation plan id
+      ansible.builtin.set_fact:
+        remediation_id: "{{ remediation_create.json.id }}"
+
+    # ── Download the plan's playbook YAML (for the ServiceNow audit attachment)
+    - name: Download the remediation plan's playbook
+      ansible.builtin.uri:
+        url: "{{ insights_base }}/api/remediations/v1/remediations/{{ remediation_id }}/playbook"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ insights_bearer }}"
+          Accept: "text/vnd.yaml"
+        return_content: true
+        status_code: 200
+        validate_certs: true
+      register: remediation_playbook
+      changed_when: false
+
+    - name: Write the remediation playbook to disk (audit artifact)
+      ansible.builtin.copy:
+        dest: "{{ remediation_playbook_dir }}/{{ fetch_cve }}.yml"
+        content: "{{ remediation_playbook.content }}"
+        mode: "0644"
+
+    - name: Publish remediation artifacts for the downstream workflow
+      ansible.builtin.set_stats:
+        data:
+          insights_uuid: "{{ insights_uuid }}"
+          reported_cve: "{{ fetch_cve }}"
+          has_automated_remediation: true
+          cve_synopsis: "{{ cve_record.attributes.synopsis | default('') }}"
+          cve_description: "{{ cve_record.attributes.description | default('') }}"
+          remediation_id: "{{ remediation_id }}"
+          remediation_plan_name: "{{ remediation_plan_name }}"
+          remediation_playbook_filename: "{{ fetch_cve }}.yml"
+          remediation_playbook_content: "{{ remediation_playbook.content }}"
+
+    - name: Summary
+      ansible.builtin.debug:
+        msg: >-
+          Created Insights remediation plan '{{ remediation_plan_name }}'
+          ({{ remediation_id }}) for {{ fetch_cve }} on {{ fetch_host }}.
+          Playbook ({{ remediation_playbook.content | length }} bytes) saved to
+          {{ remediation_playbook_dir }}/{{ fetch_cve }}.yml. The AAP Insights
+          project (Slice 5) syncs + runs this plan.

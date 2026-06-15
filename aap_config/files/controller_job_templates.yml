@@ -163,6 +163,21 @@ controller_templates:
       - "{{ cred_linux }}"
     ask_limit_on_launch: true
 
+  # ── Create the Insights remediation plan (Phase 11 / Slice 2) ──────────────
+  # Runs on the control node. The Insights credential injects
+  # INSIGHTS_CLIENT_ID/SECRET as env vars. affected_host + reported_cve arrive
+  # as workflow extra_vars (from the Insights -> EDA event) or on launch.
+  - name: "{{ jt_insights_fetch_remediation }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ control_inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/insights_fetch_remediation.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_insights }}"
+    ask_variables_on_launch: true
+
   # ── ServiceNow callbacks (Provision workflow — RITM) ────────────────────────
   - name: "{{ jt_snow_notice_provision }}"
     job_type: run
