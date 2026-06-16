@@ -139,6 +139,7 @@ controller_templates:
       - "{{ cred_linux }}"
       - "{{ cred_servicenow }}"
     ask_limit_on_launch: true
+    ask_variables_on_launch: true
 
   # ── CVE Remediation ────────────────────────────────────────────────────────
   - name: "{{ jt_remediate_cve }}"
