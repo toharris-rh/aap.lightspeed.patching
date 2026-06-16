@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed (2026-06-16)
+
+- **Architecture diagram updated** — replaced `docs/images/instantaneous-patching-architecture.png`
+  with a new diagram reflecting the actual SNow CVE demo flow: 6 steps, EDA as a
+  distinct component, no Jira, and the 4 AAP workflow nodes (Link CMDB CI →
+  Fetch Remediation Plan → Patch RHEL → Close Incident).
+- **README steps updated** — title changed to "Accelerated Patching", architecture
+  steps rewritten to match the live demo workflow. Closes #139.
+
 ### Added (2026-06-16)
 
 - **OpenShift credential placeholders in `dev-environment.sh.example`** — added
