@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Removed (2026-06-16)
+
+- **EDA self-POST play removed from `introduce_cve.yml`** — the second play that
+  polled Insights and self-POSTed a CVE notification to the EDA event stream is
+  gone. The SNow CVE Demo workflow uses `skip_eda_trigger: true` to bypass it
+  anyway, and the ServiceNow Business Rule now handles EDA triggering
+  automatically. The hanging assert on `INSIGHTS_EDA_EVENT_STREAM_URL` was
+  causing demo failures. Closes #133.
+
 ### Added (2026-06-16)
 
 - **SNow CVE Remediation — close incident after patching** — wired `close_incident`
