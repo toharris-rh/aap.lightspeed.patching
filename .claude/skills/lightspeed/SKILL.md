@@ -81,6 +81,36 @@ Add the service account to the group on the **Service Accounts** tab.
 > `curl -o /dev/null -w "%{http_code}"` against the inventory / vulnerability /
 > remediations endpoints (200 = the role is present, 403 = missing).
 
+### ⚠️ `remediations:remediation:write` — common 403 (verified 2026-06-16)
+
+`insights_fetch_remediation.yml` calls `POST /api/remediations/v1/remediations`
+to create the remediation plan. This fails with **HTTP 403** if the service
+account only has **Remediations viewer** (read-only). The group must include
+**Remediations user** (or higher), which grants `remediations:remediation:write`.
+
+Symptom in AAP: the Fetch Insights Remediation JT fails at
+"Create the Insights remediation plan (tolerate already-exists)" with:
+
+```
+"Permission remediations:remediation:write is required for this operation"
+```
+
+Fix: in console.redhat.com → Settings → User Access → your group → Roles,
+replace **Remediations viewer** with **Remediations user** (or add it). Verify:
+
+```bash
+source docs/dev-environment.sh
+TOKEN=$(curl -s -X POST "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token" \
+  -d "grant_type=client_credentials" \
+  -d "client_id=${INSIGHTS_CLIENT_ID}" \
+  -d "client_secret=${INSIGHTS_CLIENT_SECRET}" \
+  | python3 -c "import json,sys; print(json.load(sys.stdin)['access_token'])")
+curl -s -H "Authorization: Bearer ${TOKEN}" \
+  "https://console.redhat.com/api/rbac/v1/access/?application=remediations" \
+  | python3 -c "import json,sys; [print(r['permission']) for r in json.load(sys.stdin)['data']]"
+# Must show: remediations:remediation:write
+```
+
 ## Insights API endpoints used
 
 ### Inventory — look up a host by display_name
