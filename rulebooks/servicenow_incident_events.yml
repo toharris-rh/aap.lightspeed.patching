@@ -30,19 +30,25 @@
         port: 5000
 
   rules:
-    - name: Link CMDB CI to new CVE incident
-      # Fires on every CVE_INCIDENT payload from the Harris Business Rule.
-      # display_name is extracted from the incident description by the Business
-      # Rule and passed here as event.payload.display_name.
+    - name: Link CI, fetch remediation, and patch CVE
+      # Fires on every CVE_INCIDENT from the Harris Business Rule.
+      # Runs the full SNow CVE Remediation workflow:
+      #   Node 1: link CMDB CI to the INC
+      #   Node 2: fetch Insights remediation plan
+      #   Node 3: patch the affected host
+      # The workflow limit restricts patching to the single affected host.
       condition: event.payload.event == "CVE_INCIDENT" and event.payload.number is defined
       action:
-        run_job_template:
-          name: "Lightspeed Patching - SNow Relate CMDB CI to Incident"
+        run_workflow_template:
+          name: "Lightspeed Patching - SNow CVE Remediation"
           organization: "{{ my_organization }}"
           job_args:
+            limit: "{{ event.payload.display_name | default('') }}"
             extra_vars:
               incident_number: "{{ event.payload.number }}"
+              incident_sys_id: "{{ event.payload.sys_id | default('') }}"
               host_fqdn: "{{ event.payload.display_name | default('') }}"
+              reported_cve: "{{ event.payload.reported_cve | default('') }}"
 
     - name: Remediate CVE on Insights-originated incident
       # TODO (Tony, Phase 5): replace condition with confirmed Insights INC field.

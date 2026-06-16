@@ -144,6 +144,7 @@ workflow_remediate_name: "Lightspeed Patching - Remediate CVE Workflow"
 # Auditable automated CVE remediation (native Insights -> EDA push trigger).
 workflow_cve_remediation_name: "Lightspeed Patching - Automated CVE Remediation"
 workflow_snow_cve_demo_name: "Lightspeed Patching - SNow CVE Demo"
+workflow_snow_cve_remediation_name: "Lightspeed Patching - SNow CVE Remediation"
 
 cred_aws: "Lightspeed Patching - AWS"
 cred_linux: "Lightspeed Patching - Linux Machine"
