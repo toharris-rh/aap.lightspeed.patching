@@ -1,6 +1,6 @@
 # aap.lightspeed.patching
 
-> **Instantaneous Patching — Patching in the Mythos era**
+> **Accelerated Patching — in the Mythos era**
 
 Automated, AI-assisted patching workflow combining **Red Hat Lightspeed**,
 **Ansible Automation Platform (AAP)**, and **Event-Driven Ansible (EDA)** to
@@ -13,10 +13,16 @@ identify, remediate, and record CVEs and advisories — with full ITSM integrati
 ![Instantaneous Patching Architecture](docs/images/instantaneous-patching-architecture.png)
 
 ```
-1. RHEL systems register to Red Hat Lightspeed
-2. CVE / Advisor identified by Lightspeed
-3. AAP runs patch job template against affected hosts
-4. ITSM Change Request created and updated (ServiceNow)
+1. RHEL hosts registered to Red Hat Insights
+2. Red Hat Insights scans for CVEs and advisories
+3. CVE identified — triggers automated response
+4. ServiceNow incident created automatically
+5. Event-Driven Ansible picks up the event and fires the remediation workflow
+6. AAP Remediation Workflow:
+   a. Link CMDB CI to the incident
+   b. Fetch the Insights remediation plan
+   c. Patch the RHEL host
+   d. Close the incident ("Solved Permanently")
 ```
 
 ---
