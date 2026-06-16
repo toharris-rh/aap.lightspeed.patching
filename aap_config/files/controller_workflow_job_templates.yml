@@ -169,17 +169,11 @@ controller_workflows:
 
       - identifier: fetch_remediation
         unified_job_template: "{{ jt_insights_fetch_remediation }}"
-        extra_data:
-          affected_host: "{{ host_fqdn | default('') }}"
-          reported_cve: "{{ reported_cve | default('') }}"
         success_nodes:
           - patch_host
 
       - identifier: patch_host
         unified_job_template: "{{ jt_patch_rhel }}"
-        extra_data:
-          ticket_number: "{{ incident_number | default('') }}"
-          ticket_sys_id: "{{ incident_sys_id | default('') }}"
 
   # ── SNow CVE Demo ──────────────────────────────────────────────────────────
   # One-click demo: Introduce CVE (openssl downgrade + insights-client) then
