@@ -172,6 +172,7 @@ controller_templates:
       - "{{ cred_insights_api }}"
     ask_limit_on_launch: true
     ask_variables_on_launch: true
+    survey_enabled: false
 
   # ── Create the Insights remediation plan (Phase 11 / Slice 2) ──────────────
   # Runs on the control node. cred_insights_api injects INSIGHTS_CLIENT_ID/SECRET

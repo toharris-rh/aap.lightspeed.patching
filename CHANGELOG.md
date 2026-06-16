@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (2026-06-16)
+
+- **Introduce CVE JT — remove stale survey** — added `survey_enabled: false` to
+  the CaC definition for "Lightspeed Patching - Introduce CVE (Demo Setup)". The
+  survey exposed a `target_kernel` variable that the playbook never uses (it
+  defaults to an OpenSSL downgrade via `target_package`/`target_version`). Survey
+  was added outside CaC; this enforces the correct state on next `load.yml` run.
+
 ### Added (2026-06-15)
 
 - **Phase 11 status summary for team sync** — new `docs/phase11-status.md`:
