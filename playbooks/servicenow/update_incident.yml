@@ -44,18 +44,28 @@
     inc_success_comment: |-
       Automated remediation completed successfully.
 
-      Advisory:       {{ advisory_id | default('n/a') }}
-      Patched hosts:  {{ patched_hosts | default('n/a') }}
-      Job ID:         {{ patch_my_job_id | default('n/a') }}
+      CVE:              {{ reported_cve | default('n/a') }}
+      Synopsis:         {{ cve_synopsis | default('n/a') }}
+      Host:             {{ host_fqdn | default('n/a') }}
+      Advisory:         {{ advisory_id | default('n/a') }}
+      Patched hosts:    {{ patched_hosts | default('n/a') }}
+      AAP Job ID:       {{ patch_my_job_id | default('n/a') }}
+      Remediation plan: {{ remediation_plan_name | default('n/a') }}
+
+      [Insights Remediation Playbook]
+      {{ remediation_playbook_content | default('n/a') }}
 
       Resolving this incident.
 
     inc_failure_comment: |-
       Automated remediation did not complete.
 
+      CVE:           {{ reported_cve | default('n/a') }}
+      Synopsis:      {{ cve_synopsis | default('n/a') }}
+      Host:          {{ host_fqdn | default('n/a') }}
       Advisory:      {{ advisory_id | default('n/a') }}
       Failed hosts:  {{ failed_hosts | default('n/a') }}
-      Job ID:        {{ patch_my_job_id | default('n/a') }}
+      AAP Job ID:    {{ patch_my_job_id | default('n/a') }}
       Error:         {{ patch_my_error | default('see Ansible job output') }}
 
     _comment_map:

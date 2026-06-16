@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-06-16)
+
+- **SNow CVE Remediation — close incident after patching** — wired `close_incident`
+  (success) and `update_inc_failure` (failure) terminal nodes to the `patch_host`
+  step in `aap_config/files/controller_workflow_job_templates.yml`. On success the
+  ServiceNow incident is resolved (state 6); on failure it moves to In Progress
+  (state 2) with error details. Mirrors the pattern already in the Remediate CVE
+  workflow.
+- **Enriched close/failure work notes** — `playbooks/servicenow/update_incident.yml`
+  `inc_success_comment` and `inc_failure_comment` now include CVE ID, synopsis,
+  host FQDN, remediation plan name, and the full Insights-authored remediation
+  playbook content (all flow as `set_stats` artifacts from `fetch_remediation`).
+  Closes #131.
+
 ### Fixed (2026-06-16)
 
 - **Introduce CVE JT — remove stale survey** — added `survey_enabled: false` to
