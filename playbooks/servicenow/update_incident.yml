@@ -105,6 +105,8 @@
             data:
               state: "{{ _state_map[inc_outcome] }}"
               work_notes: "{{ _comment_map[inc_outcome] }}"
+              close_code: "{{ 'Solved (Permanently)' if inc_outcome == 'success' else omit }}"
+              close_notes: "{{ _comment_map[inc_outcome] if inc_outcome == 'success' else omit }}"
 
         - name: Show update result
           ansible.builtin.debug:
