@@ -296,3 +296,47 @@ upstream:
 
 `aap_config/requirements.yml` currently pins `infra.aap_configuration` 4.4.0;
 check that pin before assuming a 4.6.0 feature/fix is present.
+
+## EDA activation `test_mode` — post-load gotcha (verified 2026-06-15)
+
+The `infra.aap_configuration` EDA rulebook activation role does **not** support
+a `test_mode` parameter. Every `load.yml` run that touches an activation resets
+the event stream's `test_mode` to `true` (the EDA default). In test_mode, events
+arrive at the stream but are **not forwarded** to the rulebook — the activation
+appears healthy but rules never fire.
+
+**Symptom:** Business Rule posts HTTP 200, event stream `events_received` count
+ticks up, but no JTs or workflows launch.
+
+**Fix — run immediately after every `load.yml` that touches an EDA activation:**
+
+```bash
+source docs/dev-environment.sh
+# Replace <stream-id> with the numeric ID of the event stream
+# (visible in AAP → Automation Decisions → Event Streams → Details)
+curl -sk -u "$AAP_CONTROLLER_USERNAME:$AAP_CONTROLLER_PASSWORD" \
+  -X PATCH "$AAP_HOSTNAME/api/eda/v1/event-streams/<stream-id>/" \
+  -H "Content-Type: application/json" \
+  -d '{"test_mode": false}'
+```
+
+Stream IDs for this deployment:
+- `1` — "Lightspeed Patching - ServiceNow Event Stream"
+- `2` — "Lightspeed Patching - Insights Event Stream"
+
+**Verify:**
+```bash
+curl -sk -u "$AAP_CONTROLLER_USERNAME:$AAP_CONTROLLER_PASSWORD" \
+  "$AAP_HOSTNAME/api/eda/v1/activations/<activation-id>/" \
+  | python3 -c "import sys,json; j=json.load(sys.stdin); s=j.get('event_streams',[]); print('test_mode:', s[0].get('test_mode') if s else '?')"
+```
+
+`test_mode: False` = events are forwarded to the rulebook.
+
+## `jt_snow_relate_cmdb` credential requirement
+
+`playbooks/servicenow/relate_cmdb_to_incident.yml` queries the Insights
+inventory API to resolve the host's UUID — it needs `cred_insights_api` in
+addition to `cred_servicenow`. Missing `cred_insights_api` shows as a censored
+`no_log` failure on the Insights bearer token task (the JT fails silently with
+no clear error message). Both credentials are now in the CaC definition.
