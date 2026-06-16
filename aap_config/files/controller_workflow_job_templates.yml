@@ -146,6 +146,41 @@ controller_workflows:
       - identifier: snow_update_inc_failure
         unified_job_template: "{{ jt_snow_update_inc }}"
 
+  # ── SNow CVE Remediation ───────────────────────────────────────────────────
+  # Triggered by EDA when a CVE_INCIDENT event arrives on the ServiceNow
+  # event stream. Chains: link CMDB CI → fetch Insights remediation plan →
+  # patch the affected host. No CHG step for now (to be added later).
+  #
+  # Inputs (from EDA run_workflow_template extra_vars + limit):
+  #   incident_number, incident_sys_id   — INC identifiers for snow_log
+  #   host_fqdn                          — host FQDN for CI lookup
+  #   reported_cve                       — CVE ID from the Insights payload
+  #   limit (workflow-level)             — set to host_fqdn by the rulebook
+  - name: "{{ workflow_snow_cve_remediation_name }}"
+    organization: "{{ my_organization }}"
+    inventory: "{{ inventory_name }}"
+    ask_variables_on_launch: true
+    ask_limit_on_launch: true
+    simplified_workflow_nodes:
+      - identifier: link_ci
+        unified_job_template: "{{ jt_snow_relate_cmdb }}"
+        success_nodes:
+          - fetch_remediation
+
+      - identifier: fetch_remediation
+        unified_job_template: "{{ jt_insights_fetch_remediation }}"
+        extra_data:
+          affected_host: "{{ host_fqdn | default('') }}"
+          reported_cve: "{{ reported_cve | default('') }}"
+        success_nodes:
+          - patch_host
+
+      - identifier: patch_host
+        unified_job_template: "{{ jt_patch_rhel }}"
+        extra_data:
+          ticket_number: "{{ incident_number | default('') }}"
+          ticket_sys_id: "{{ incident_sys_id | default('') }}"
+
   # ── SNow CVE Demo ──────────────────────────────────────────────────────────
   # One-click demo: Introduce CVE (openssl downgrade + insights-client) then
   # immediately Send CVE to ServiceNow. ServiceNow creates an INC, the Harris
