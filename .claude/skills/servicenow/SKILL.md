@@ -343,3 +343,78 @@ Full runbook: `docs/native-servicenow-integration.md`.
    `https://<instance>.service-now.com/api/x_rhtpp_rh_webhook/flow_templates_for_red_hat_insights`.
    Bypasses AAP/EDA entirely. Store app install + console wizard are both
    manual UI steps.
+
+## Business Rule "Harris - Inc" — as-built wiring (verified 2026-06-15)
+
+The Business Rule fires on **every Insights-created INC insert** and POSTs a
+`CVE_INCIDENT` payload to the "Harris - Lightspeed EDA Event Stream", which
+the "Catch SNow Incidents" EDA activation then forwards to
+`servicenow_incident_events.yml`.
+
+### Critical fields on the Business Rule record (`sys_script`)
+
+| Field | Value | Why it matters |
+|---|---|---|
+| `collection` | `incident` | **Must be set** — empty = rule never fires |
+| `when` | `after` | Runs after the record is committed |
+| `action_insert` | `true` | Insert only — don't fire on updates |
+| `condition` | `current.caller_id.user_name == 'rh_insights_integration'` | **JavaScript expression**, not query syntax. Scopes to Insights-created INCs only; stops the rule firing on every INC on the shared instance |
+| `filter_condition` | `""` (empty) | **Must be cleared** — if left non-empty with a CI reference (e.g. `cmdb_ci.managed_by=...`), the rule silently never fires because the CI is empty on new INCs |
+| `active` | `true` | |
+
+Verify via REST:
+```bash
+source docs/dev-environment.sh
+curl -s -u "$SN_USERNAME:$SN_PASSWORD" \
+  "$SN_HOST/api/now/table/sys_script/<sys_id>?sysparm_fields=collection,condition,filter_condition,action_insert,active&sysparm_display_value=true"
+```
+
+### Payload shape sent to EDA
+
+The Business Rule sends JSON with these top-level fields:
+
+```json
+{
+  "event": "CVE_INCIDENT",
+  "number": "INC0011435",
+  "sys_id": "...",
+  "state": "New",
+  "short_description": "VULNERABILITY: Reported CVE-2026-45445",
+  "description": "Account id: ...\nCVSS score: {...full Insights payload JSON...}",
+  "category": "...",
+  "priority": "5 - Planning",
+  "display_name": "ec2-100-31-42-64.compute-1.amazonaws.com"
+}
+```
+
+`display_name` is extracted by the Business Rule from the embedded JSON blob in
+the description field (the Flow Templates app embeds the full Insights payload
+under "CVSS score:" in the description; `context.display_name` is the affected
+host FQDN). If parsing fails, the field is omitted and a `gs.warn` is logged.
+
+### `servicenow_incident_events.yml` rulebook — Rule 1 (CI-linking)
+
+```yaml
+- name: Link CMDB CI to new CVE incident
+  condition: event.payload.event == "CVE_INCIDENT" and event.payload.number is defined
+  action:
+    run_job_template:
+      name: "Lightspeed Patching - SNow Relate CMDB CI to Incident"
+      organization: "{{ my_organization }}"
+      job_args:
+        extra_vars:
+          incident_number: "{{ event.payload.number }}"
+          host_fqdn: "{{ event.payload.display_name | default('') }}"
+```
+
+The JT requires `cred_servicenow` **and** `cred_insights_api` — the playbook
+queries the Insights inventory API to resolve the host UUID. Missing
+`cred_insights_api` causes a silent `no_log` failure on the bearer token task.
+
+### Diagnosing "Business Rule fired but EDA did nothing"
+
+Check in order:
+1. **Rule logged?** `GET /api/now/table/syslog?sysparm_query=messageLIKEHarris INC EDA` — zero rows = rule didn't fire (check `collection`, `filter_condition`, `condition`).
+2. **Event reached EDA?** AAP → Event Streams → "Harris - Lightspeed EDA Event Stream" — `events_received` count incremented?
+3. **Activation in test_mode?** If yes, events are stored but not forwarded — see the aap-config skill.
+4. **JT failed?** Check the "SNow Relate CMDB CI to Incident" job log — missing `cred_insights_api` shows as a censored `no_log` failure on the bearer token task.
