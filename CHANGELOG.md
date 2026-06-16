@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (2026-06-16)
+
+- **SNow close incident — add `close_code` and `close_notes`** — resolving a
+  ServiceNow incident (state 6) requires both fields per the instance's data
+  policy. Added `close_code: "Solved (Permanently)"` and `close_notes` (same
+  content as the work note) to the PATCH payload in `update_incident.yml` when
+  `inc_outcome == success`. Non-success paths are unaffected. Closes #135.
+
 ### Removed (2026-06-16)
 
 - **EDA self-POST play removed from `introduce_cve.yml`** — the second play that
