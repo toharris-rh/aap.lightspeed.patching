@@ -120,3 +120,12 @@ export REDHAT_SUBSCRIPTIONS_CLIENT_SECRET=""
 # ============================================================================
 # export LIGHTSPEED_PATCHING_EE_VERSION="v1.1.0"
 # export LIGHTSPEED_PATCHING_EE_IMAGE="quay.io/zigfreed/lightspeed-patching-ee:latest"
+
+# ============================================================================
+# OpenShift cluster (oc / helm)
+# API URL from: Cluster → Copy Login Command → Display Token
+# Token from the same page, or: oc whoami -t after logging in interactively.
+# ============================================================================
+export OCP_API_URL=""          # https://api.<cluster>.<domain>:6443
+export OCP_TOKEN=""            # long-lived SA token or kubeadmin token
+export OCP_NAMESPACE=""        # target namespace / project

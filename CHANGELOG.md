@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-06-16)
+
+- **OpenShift credential placeholders in `dev-environment.sh.example`** — added
+  `OCP_API_URL`, `OCP_TOKEN`, and `OCP_NAMESPACE` so the template covers `oc`
+  and `helm` cluster access alongside the existing AAP/AWS/ServiceNow vars.
+  Closes #137.
+
 ### Fixed (2026-06-16)
 
 - **SNow close incident — add `close_code` and `close_notes`** — resolving a
