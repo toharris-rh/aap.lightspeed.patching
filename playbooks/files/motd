@@ -18,7 +18,7 @@
       |         =============================================               |
       |                                                                     |
       |   Powered by:                                                       |
-      |     - Red Hat Insights            (detect)                          |
+      |     - Red Hat Lightspeed          (detect)                          |
       |     - Event-Driven Ansible        (respond)                         |
       |     - Ansible Automation Platform (remediate)                       |
       |     - ServiceNow ITSM             (track)                           |

@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed (2026-06-16)
 
+- **Rebranded "Red Hat Insights" → "Red Hat Lightspeed"** in the architecture
+  diagram, README workflow steps, and MOTD banner (`playbooks/files/motd`).
+  Closes #141.
+
+
+
 - **Architecture diagram updated** — replaced `docs/images/instantaneous-patching-architecture.png`
   with a new diagram reflecting the actual SNow CVE demo flow: 6 steps, EDA as a
   distinct component, no Jira, and the 4 AAP workflow nodes (Link CMDB CI →
