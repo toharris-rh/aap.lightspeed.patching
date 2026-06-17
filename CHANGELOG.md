@@ -8,7 +8,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed (2026-06-16)
 
 - **Architecture diagram tweaks** — reduced RHEL host stack to a single host in
-  step 1; increased step-number font size inside red circles for legibility.
+  step 1; increased step-number font size inside red circles for legibility;
+  increased all label font sizes; consolidated title to a single line;
+  repositioned "AAP Remediation Workflow" label clear of the dashed connector.
 
 - **Rebranded "Red Hat Insights" → "Red Hat Lightspeed"** in the architecture
   diagram, README workflow steps, and MOTD banner (`playbooks/files/motd`).
