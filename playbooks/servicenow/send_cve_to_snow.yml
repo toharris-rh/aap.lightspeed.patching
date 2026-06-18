@@ -43,6 +43,15 @@
     target_fqdn: ""
 
   tasks:
+    # ── Allow Lightspeed to process the new vulnerability state ───────────────
+    # insights-client (run in the previous workflow step) uploads host state to
+    # console.redhat.com, but Lightspeed needs ~60s to ingest it and surface the
+    # CVE in the vulnerability API. Without this pause the query returns stale
+    # results and misses the newly introduced CVE.
+    - name: Wait 60 s for Lightspeed to ingest the new vulnerability state
+      ansible.builtin.pause:
+        seconds: 60
+
     # ── Resolve host from AAP inventory if not provided ───────────────────────
     - name: Acquire AAP token for inventory lookup
       when: target_fqdn | length == 0
