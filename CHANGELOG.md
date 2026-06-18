@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (2026-06-17)
+
+- **Race condition in SNow CVE Demo workflow** — `send_cve_to_snow.yml` now
+  pauses 60 seconds at the start to allow Lightspeed to ingest the vulnerability
+  state uploaded by `insights-client` before querying the vulnerability API.
+  Without the delay the CVE query returned stale results and missed the newly
+  introduced CVE. Closes #145.
+
 ### Changed (2026-06-16)
 
 - **Architecture diagram tweaks** — reduced RHEL host stack to a single host in
