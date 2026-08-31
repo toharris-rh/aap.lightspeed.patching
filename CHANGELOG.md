@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added (2026-08-31)
+
+- **ServiceNow skill — AAP cluster-change runbook** — documented the two-record
+  REST message update pattern: `sys_rest_message` and `sys_rest_message_fn` both
+  have `rest_endpoint` fields; the function-level field takes precedence and must
+  be updated or the BR silently returns HTTP 0. Includes bearer token property
+  update and EDA `test_mode` reset reminder. Closes #150.
+
 ### Fixed (2026-08-31)
 
 - **CaC Bearer auth on AAP 2.5 unified gateway** — `aap_token_acquire.yml`
