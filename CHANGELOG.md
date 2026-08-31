@@ -5,6 +5,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed (2026-08-31)
+
+- **CaC Bearer auth on AAP 2.5 unified gateway** — `aap_token_acquire.yml`
+  now sets `lsp_cac_token` to the plain token string extracted from
+  `ansible_facts.aap_token.token`. The minted token is a gateway token accepted
+  by both the Controller and EDA APIs as Bearer; the previous approach (clearing
+  to `""` for basic auth fallback) was no longer needed on AAP 2.5. Also sets
+  `aap_token` to the token string so `ansible.controller.*` modules receive a
+  valid Bearer string instead of an empty value. Closes #148.
+
+- **`ansible.controller` modules failing with `request_timeout` float conversion
+  error** — Added `request_timeout: "10"` to the `Lightspeed Patching -
+  Controller` credential in CaC. The "Red Hat Ansible Automation Platform"
+  credential type injects `CONTROLLER_REQUEST_TIMEOUT: "{{request_timeout}}"`;
+  with no value set this resolved to `""`, causing `ansible.controller.group`
+  and similar modules to fail on every Provision VM run. Closes #148.
+
+- **Remove `galaxy_credentials` from organization CaC object** — Dropped the
+  `Automation Hub - certified`, `Automation Hub - validated`, and
+  `Ansible Galaxy` associations from `gateway_organizations.yml`; these are no
+  longer required at the organization level. Closes #148.
+
 ### Fixed (2026-06-17)
 
 - **Race condition in SNow CVE Demo workflow** — `send_cve_to_snow.yml` now
