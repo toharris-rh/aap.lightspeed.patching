@@ -227,6 +227,70 @@ token comes from a system property (`gs.getProperty('harris.eda_event_stream_tok
 
 > **40-char limit** on the `sys_rest_message.name` field — keep names short.
 
+### ⚠️ Updating the EDA URL when the AAP cluster changes (two records, not one)
+
+A named REST message in ServiceNow has **two** `rest_endpoint` fields. The
+function-level field **overrides** the parent when set. Updating only the parent
+record leaves the BR posting to the old (dead) cluster and returning **HTTP 0**
+silently — the BR syslog shows `-> HTTP 0` with no exception, making this hard
+to diagnose.
+
+Tony Harris's records (see the Known SE configurations table for names/property):
+
+| Table | sys_id | Field |
+|-------|--------|-------|
+| `sys_rest_message` | `8e78c6b487e5071064a055383cbb3556` | `rest_endpoint` — parent base URL |
+| `sys_rest_message_fn` | `df784e7487e5071064a055383cbb356b` | `rest_endpoint` — **POST function, takes precedence** |
+| `sys_properties` | `ce88c6b487e5071064a055383cbb35d9` | `value` — bearer token (`harris.eda_event_stream_token`) |
+
+Update all three when the cluster changes:
+
+```bash
+source docs/dev-environment.sh
+
+# 1. Get the new EDA ServiceNow event stream URL from AAP
+NEW_URL=$(curl -sk -u "${AAP_CONTROLLER_USERNAME}:${AAP_CONTROLLER_PASSWORD}" \
+  "${AAP_HOSTNAME%/}/api/eda/v1/event-streams/1/" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['url'])")
+echo "New URL: $NEW_URL"
+
+# 2. Update parent REST message record
+curl -s -u "$SN_USERNAME:$SN_PASSWORD" -X PATCH \
+  -H "Content-Type: application/json" \
+  -d "{\"rest_endpoint\": \"$NEW_URL\"}" \
+  "$SN_HOST/api/now/table/sys_rest_message/8e78c6b487e5071064a055383cbb3556"
+
+# 3. Update POST function record (the one that actually matters)
+curl -s -u "$SN_USERNAME:$SN_PASSWORD" -X PATCH \
+  -H "Content-Type: application/json" \
+  -d "{\"rest_endpoint\": \"$NEW_URL\"}" \
+  "$SN_HOST/api/now/table/sys_rest_message_fn/df784e7487e5071064a055383cbb356b"
+
+# 4. Update the bearer token property
+curl -s -u "$SN_USERNAME:$SN_PASSWORD" -X PATCH \
+  -H "Content-Type: application/json" \
+  -d "{\"value\": \"$EDA_EVENT_STREAM_TOKEN\"}" \
+  "$SN_HOST/api/now/table/sys_properties/ce88c6b487e5071064a055383cbb35d9"
+```
+
+**Verify:** trigger the SNow CVE Demo workflow, then check the BR syslog for
+`HTTP 200`:
+```bash
+source docs/dev-environment.sh
+curl -s -u "$SN_USERNAME:$SN_PASSWORD" \
+  "$SN_HOST/api/now/table/syslog?sysparm_query=messageLIKEHarris+INC+EDA%5EORDERBYDESCsys_created_on&sysparm_limit=3&sysparm_fields=sys_created_on,message" \
+  | python3 -c "import sys,json; [print(r['message']) for r in json.load(sys.stdin).get('result',[])]"
+```
+
+**After every `load.yml` — flip test_mode back off** (load.yml resets it to
+`true` every run):
+```bash
+source docs/dev-environment.sh
+curl -sk -u "${AAP_CONTROLLER_USERNAME}:${AAP_CONTROLLER_PASSWORD}" \
+  -X PATCH "$AAP_HOSTNAME/api/eda/v1/event-streams/1/" \
+  -H "Content-Type: application/json" -d '{"test_mode": false}'
+```
+
 ### Known SE configurations
 
 | SE | Business Rule | REST Message | Token Property | User sys_id |
@@ -269,17 +333,19 @@ ansible-playbook playbooks/servicenow/create_change_request.yml \
 3. Insights: Settings → Integrations → webhook → Authorization header → paste
 4. Trigger a test advisory → verify EDA fires
 
-## Instance state (verified 2026-06-15)
+## Instance state (verified 2026-08-31)
 
 - The configured `SN_USERNAME` account holds **`admin`** on this shared instance.
-- **CVE→INC pipeline validated:** INC0011424 created end-to-end (Insights→EDA→
-  workflow→ServiceNow) with cmdb_ci linked + remediation playbook work note.
-  Stray test incidents INC0011422/INC0011423 closed as test artifacts.
-- **Harris - Inc business rule live** (2026-06-15): fires after insert on
-  `incident` table, scoped to CIs managed by Tony Harris. Outbound REST message
-  `Harris - Lightspeed EDA Event Stream` has a PLACEHOLDER endpoint — Tony needs
-  to update it with his AAP EDA event stream URL and set the
-  `harris.eda_event_stream_token` system property.
+- **CVE→INC→EDA→SNow CVE Remediation pipeline validated end-to-end** (2026-08-31):
+  SNow CVE Demo workflow creates INC via `rh_insights_integration`, Business Rule
+  fires HTTP 200 to EDA event stream 1, `servicenow_incident_events.yml` rulebook
+  launches "SNow CVE Remediation" workflow automatically.
+- **Harris - Inc business rule live**: fires after insert on `incident` table,
+  scoped to `caller_id.user_name == 'rh_insights_integration'` (not via
+  `filter_condition` — see the Critical fields table below). REST message both
+  records (`sys_rest_message` + `sys_rest_message_fn`) point to the current AAP
+  cluster. Token property `harris.eda_event_stream_token` set to current
+  `EDA_EVENT_STREAM_TOKEN`.
 - Installed Red Hat scoped apps:
   - **`x_rhtpp_eda` — "Event-Driven Ansible Notification Service" v1.0.6**
     (matches this repo's EDA path).
