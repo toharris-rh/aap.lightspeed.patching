@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased — feature/satellite]
 
+### Added (2026-09-01)
+
+- **`playbooks/satellite_demo_reset.yml` + Lightspeed Patching - Demo Reset JT** —
+  re-promotes the filtered (patched-RPM-excluded) Satellite content view version
+  back to the Development lifecycle environment so the next demo run starts with
+  repos that don't contain the CVE fix. Accepts `satellite_cv_name`,
+  `satellite_lce_name`, and `satellite_reset_cv_version` via survey; polls the
+  Foreman task until complete. Uses the Satellite credential (API calls only,
+  no SSH). Wired into CaC (`controller_job_templates.yml`, `group_vars/all.yml`).
+
 ### Changed (2026-09-01)
 
 - **`introduce_cve.yml`** — run `dnf clean all` after package downgrade so the

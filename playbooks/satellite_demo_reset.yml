@@ -1,0 +1,154 @@
+---
+# ============================================================================
+# playbooks/satellite_demo_reset.yml
+# ============================================================================
+# Resets the Satellite demo state between runs by re-promoting the "broken"
+# (filtered, patched-RPM-excluded) content view version back to the
+# Development lifecycle environment.
+#
+# Pre-conditions:
+#   - CV version N   (filtered, no patched openssl) — this is what we restore
+#   - CV version N+1 (unfiltered, has patched openssl) — left in place
+#
+# After this runs the host repos point to the filtered CV version again so
+# dnf check-update --cve returns no fix, triggering the Satellite promotion
+# path in patch_rhel.yml on the next demo run.
+#
+# Variables (set via survey):
+#   satellite_cv_name           Content view name (default: RHEL9)
+#   satellite_lce_name          Lifecycle env to reset (default: Development)
+#   satellite_reset_cv_version  Version number to restore (e.g. "2.0") — REQUIRED
+#
+# Credentials: Lightspeed Patching - Satellite
+# ============================================================================
+
+- name: Reset Satellite demo — re-promote broken CV version to Development LCE
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    satellite_cv_name: "RHEL9"
+    satellite_lce_name: "Development"
+    satellite_reset_cv_version: ""
+
+  tasks:
+    - name: Assert satellite_reset_cv_version is provided
+      ansible.builtin.assert:
+        that: satellite_reset_cv_version | length > 0
+        fail_msg: "satellite_reset_cv_version is required (e.g. '2.0' — the filtered/broken CV version)"
+
+    - name: Look up Satellite organization ID
+      ansible.builtin.uri:
+        url: "{{ satellite_url }}/katello/api/organizations?search=name={{ satellite_org | urlencode }}"
+        user: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        force_basic_auth: true
+        validate_certs: false
+      register: sat_orgs
+
+    - name: Set organization ID
+      ansible.builtin.set_fact:
+        _sat_org_id: "{{ (sat_orgs.json.results | first).id }}"
+
+    - name: Look up content view {{ satellite_cv_name }}
+      ansible.builtin.uri:
+        url: "{{ satellite_url }}/katello/api/content_views?organization_id={{ _sat_org_id }}&name={{ satellite_cv_name | urlencode }}"
+        user: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        force_basic_auth: true
+        validate_certs: false
+      register: sat_cvs
+
+    - name: Fail if content view not found
+      ansible.builtin.fail:
+        msg: "Content view '{{ satellite_cv_name }}' not found in org '{{ satellite_org }}'"
+      when: sat_cvs.json.total == 0
+
+    - name: Set content view ID
+      ansible.builtin.set_fact:
+        _sat_cv_id: "{{ (sat_cvs.json.results | first).id }}"
+
+    - name: Look up CV version {{ satellite_reset_cv_version }}
+      ansible.builtin.uri:
+        url: "{{ satellite_url }}/katello/api/content_view_versions?content_view_id={{ _sat_cv_id }}&version={{ satellite_reset_cv_version }}"
+        user: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        force_basic_auth: true
+        validate_certs: false
+      register: sat_version_lookup
+
+    - name: Fail if CV version not found
+      ansible.builtin.fail:
+        msg: >-
+          Content view version {{ satellite_reset_cv_version }} not found
+          for '{{ satellite_cv_name }}'. Check Satellite for available versions.
+      when: sat_version_lookup.json.total == 0
+
+    - name: Set CV version ID
+      ansible.builtin.set_fact:
+        _sat_reset_cv_version_id: "{{ (sat_version_lookup.json.results | first).id }}"
+
+    - name: Look up lifecycle environment {{ satellite_lce_name }}
+      ansible.builtin.uri:
+        url: "{{ satellite_url }}/katello/api/environments?organization_id={{ _sat_org_id }}&name={{ satellite_lce_name | urlencode }}"
+        user: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        force_basic_auth: true
+        validate_certs: false
+      register: sat_lce_lookup
+
+    - name: Fail if lifecycle environment not found
+      ansible.builtin.fail:
+        msg: "Lifecycle environment '{{ satellite_lce_name }}' not found in org '{{ satellite_org }}'"
+      when: sat_lce_lookup.json.total == 0
+
+    - name: Set lifecycle environment ID
+      ansible.builtin.set_fact:
+        _sat_lce_id: "{{ (sat_lce_lookup.json.results | first).id }}"
+
+    - name: Show what will be promoted
+      ansible.builtin.debug:
+        msg: >-
+          Promoting {{ satellite_cv_name }} version {{ satellite_reset_cv_version }}
+          (id: {{ _sat_reset_cv_version_id }}) to {{ satellite_lce_name }}
+          (id: {{ _sat_lce_id }}).
+
+    - name: Promote broken CV version to {{ satellite_lce_name }}
+      ansible.builtin.uri:
+        url: "{{ satellite_url }}/katello/api/content_view_versions/{{ _sat_reset_cv_version_id }}/promote"
+        method: POST
+        user: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        force_basic_auth: true
+        validate_certs: false
+        body_format: json
+        body:
+          environment_ids:
+            - "{{ _sat_lce_id | int }}"
+          force: true
+      register: sat_promote_task
+
+    - name: Wait for Satellite promotion task to complete
+      ansible.builtin.uri:
+        url: "{{ satellite_url }}/foreman_tasks/api/tasks/{{ sat_promote_task.json.id }}"
+        user: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        force_basic_auth: true
+        validate_certs: false
+      register: sat_task_status
+      until: sat_task_status.json.state == 'stopped'
+      retries: 30
+      delay: 10
+
+    - name: Fail if Satellite promotion did not succeed
+      ansible.builtin.fail:
+        msg: "Satellite promotion task {{ sat_promote_task.json.id }} ended with result: {{ sat_task_status.json.result }}"
+      when: sat_task_status.json.result != 'success'
+
+    - name: Confirm reset complete
+      ansible.builtin.debug:
+        msg: >-
+          Demo reset complete. {{ satellite_cv_name }} version
+          {{ satellite_reset_cv_version }} is now promoted to {{ satellite_lce_name }}.
+          Host repos no longer contain the patched openssl — ready for next demo run.

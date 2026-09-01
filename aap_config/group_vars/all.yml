@@ -188,6 +188,7 @@ jt_snow_create_inc: "Lightspeed Patching - SNow Create Incident (failure)"
 jt_snow_relate_cmdb: "Lightspeed Patching - SNow Relate CMDB CI to Incident"
 jt_snow_correlation_id: "Lightspeed Patching - SNow Stamp Correlation ID"
 jt_snow_create_cve_inc: "Lightspeed Patching - SNow Create CVE Incident"
+jt_demo_reset: "Lightspeed Patching - Demo Reset"
 
 # Nightly teardown schedule names (controller_schedules.yml) — 6 PM + 10 PM.
 teardown_schedule_name: "Lightspeed Patching - Nightly Teardown 6 PM"

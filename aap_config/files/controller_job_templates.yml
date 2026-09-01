@@ -155,6 +155,44 @@ controller_templates:
       - "{{ cred_servicenow }}"
     ask_limit_on_launch: true
 
+  # ── Demo Reset: restore broken CV version to Development LCE ─────────────
+  # Re-promotes the filtered (patched-RPM-excluded) Satellite content view
+  # version back to Development so the next demo run starts with repos that
+  # don't contain the CVE fix. Runs on the control node (Satellite API calls
+  # only — no SSH to the managed host needed).
+  - name: "{{ jt_demo_reset }}"
+    job_type: run
+    organization: "{{ my_organization }}"
+    inventory: "{{ control_inventory_name }}"
+    project: "{{ project_name }}"
+    playbook: playbooks/satellite_demo_reset.yml
+    execution_environment: "{{ my_execution_environment }}"
+    credentials:
+      - "{{ cred_satellite }}"
+    survey_enabled: true
+    survey_spec:
+      name: ""
+      description: "Satellite content view version to restore"
+      spec:
+        - question_name: Content view name
+          question_description: "Satellite content view that holds the RHEL content"
+          variable: satellite_cv_name
+          type: text
+          required: true
+          default: "RHEL9"
+        - question_name: Lifecycle environment
+          question_description: "Lifecycle environment to demote back to the broken version"
+          variable: satellite_lce_name
+          type: text
+          required: true
+          default: "Development"
+        - question_name: Broken CV version
+          question_description: "CV version number to restore (the filtered version without the patched openssl, e.g. '2.0')"
+          variable: satellite_reset_cv_version
+          type: text
+          required: true
+          default: ""
+
   # ── Demo Setup: Introduce CVE ──────────────────────────────────────────────
   # Downgrades a package (cred_linux), then self-POSTs the detected CVE to the
   # EDA event stream so the workflow fires immediately (issue #91).
