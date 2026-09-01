@@ -241,6 +241,9 @@
           insights_uuid: "{{ insights_uuid }}"
           host_fqdn: "{{ fetch_host }}"
           reported_cve: "{{ fetch_cve }}"
+          # advisory_id is the CVE ID — consumed by patch_rhel.yml to run
+          # dnf upgrade --cve {{ advisory_id }} via the CVE branch.
+          advisory_id: "{{ fetch_cve }}"
           has_automated_remediation: true
           cve_synopsis: "{{ cve_record.attributes.synopsis | default('') }}"
           cve_description: "{{ cve_record.attributes.description | default('') }}"
