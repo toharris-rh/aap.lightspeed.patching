@@ -57,10 +57,17 @@
       ansible.builtin.set_fact:
         teardown_linux_fqdn: "{{ ((tf_output.stdout | from_json).linux_inventory.value | default({})).host | default('') }}"
 
-    - name: Destroy Terraform-managed resources
+    # Targeted destroy: only the EC2 instance and key pair are removed.
+    # VPC, subnet, IGW, route table, and security group are left intact so
+    # the persistent Satellite instance (not in Terraform state) keeps network
+    # connectivity. A subsequent `terraform apply` creates a fresh VM in the
+    # existing network without touching Satellite.
+    - name: Destroy demo VM and key pair (targeted — preserves VPC infrastructure)
       ansible.builtin.command:
         cmd: >-
           terraform destroy -input=false -auto-approve -no-color
+          -target=aws_instance.rhel
+          -target=aws_key_pair.demo
           -var vm_size_tier={{ vm_size_tier | default('medium') }}
           -var linux_admin_username={{ linux_admin_username | default('ec2-user') }}
         chdir: "{{ terraform_dir }}"

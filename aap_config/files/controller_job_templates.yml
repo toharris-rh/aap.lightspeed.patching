@@ -34,7 +34,7 @@ controller_templates:
             - medium
             - large
 
-  # ── Unregister RHEL (CDN + Insights) ────────────────────────────────────
+  # ── Unregister RHEL (Satellite + Insights) ──────────────────────────────
   # Best-effort: if the host is already gone, the play succeeds cleanly.
   # Runs against the live inventory (hosts: all). Wired as the first step
   # in the Teardown workflow (always → Teardown VM).
@@ -47,7 +47,7 @@ controller_templates:
     execution_environment: "{{ my_execution_environment }}"
     credentials:
       - "{{ cred_linux }}"
-      - "{{ cred_rh_cdn }}"
+      - "{{ cred_satellite_reg }}"
 
   # ── Teardown VM (AWS) ────────────────────────────────────────────────────
   # Terraform destroy + deregister host from AAP inventory. Runs against
@@ -91,7 +91,7 @@ controller_templates:
     execution_environment: "{{ my_execution_environment }}"
     credentials:
       - "{{ cred_linux }}"
-      - "{{ cred_rh_cdn }}"
+      - "{{ cred_satellite_reg }}"
     ask_limit_on_launch: true
 
   # ── Register CMDB CI + relate to Business Application ─────────────────────

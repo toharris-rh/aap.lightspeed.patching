@@ -43,6 +43,18 @@ export LINUX_SSH_PRIVATE_KEY="$(cat ~/.ssh/id_rsa)"
 export LINUX_SSH_PUBLIC_KEY="$(cat ~/.ssh/id_rsa.pub)"
 
 # ============================================================================
+# Red Hat Satellite (feature/satellite branch)
+# A persistent m5.2xlarge EC2 instance in the same VPC as demo VMs.
+# FQDN and URL are fixed; credentials and org/key are set after installation.
+# ============================================================================
+export SATELLITE_HOSTNAME=""           # e.g. satellite.example.com
+export SATELLITE_URL=""               # e.g. https://satellite.example.com
+export SATELLITE_USERNAME="admin"
+export SATELLITE_PASSWORD=""          # set after satellite-installer completes
+export SATELLITE_ORG=""               # set after org is created in Satellite UI
+export SATELLITE_ACTIVATION_KEY=""    # set after activation key is created
+
+# ============================================================================
 # Red Hat CDN — registration credentials for new RHEL VMs
 # Obtain from console.redhat.com → Subscriptions → Activation Keys
 # ============================================================================

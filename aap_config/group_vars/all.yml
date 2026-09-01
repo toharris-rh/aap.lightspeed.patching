@@ -57,6 +57,17 @@ linux_admin_username: "{{ lookup('ansible.builtin.env', 'LINUX_ADMIN_USERNAME') 
 linux_ssh_public_key: "{{ lookup('ansible.builtin.env', 'LINUX_SSH_PUBLIC_KEY') }}"
 linux_ssh_private_key: "{{ lookup('ansible.builtin.env', 'LINUX_SSH_PRIVATE_KEY') }}"
 
+# --- Red Hat Satellite -------------------------------------------------------
+satellite_hostname: "{{ lookup('ansible.builtin.env', 'SATELLITE_HOSTNAME') }}"
+satellite_url: "{{ lookup('ansible.builtin.env', 'SATELLITE_URL') }}"
+satellite_username: "{{ lookup('ansible.builtin.env', 'SATELLITE_USERNAME') | default('admin', true) }}"
+satellite_password: "{{ lookup('ansible.builtin.env', 'SATELLITE_PASSWORD') }}"
+satellite_org: "{{ lookup('ansible.builtin.env', 'SATELLITE_ORG') }}"
+satellite_activation_key: "{{ lookup('ansible.builtin.env', 'SATELLITE_ACTIVATION_KEY') }}"
+
+cred_satellite: "Lightspeed Patching - Satellite"
+cred_satellite_reg: "Lightspeed Patching - Satellite Registration"
+
 # --- Red Hat CDN -------------------------------------------------------------
 rh_org_id: "{{ lookup('ansible.builtin.env', 'RH_ORG_ID') }}"
 rh_activation_key: "{{ lookup('ansible.builtin.env', 'RH_ACTIVATION_KEY') }}"

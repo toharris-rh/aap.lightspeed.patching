@@ -8,6 +8,10 @@ resource "aws_vpc" "demo" {
   enable_dns_hostnames = true
 
   tags = merge(local.common_tags, { Name = "lsp-vpc-${local.name_suffix}" })
+
+  # Satellite lives in this VPC permanently — protect shared networking so
+  # terraform destroy only removes the demo VM, not the VPC infrastructure.
+  lifecycle { prevent_destroy = true }
 }
 
 resource "aws_subnet" "public" {
@@ -17,12 +21,16 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
 
   tags = merge(local.common_tags, { Name = "lsp-public-${local.name_suffix}" })
+
+  lifecycle { prevent_destroy = true }
 }
 
 resource "aws_internet_gateway" "demo" {
   vpc_id = aws_vpc.demo.id
 
   tags = merge(local.common_tags, { Name = "lsp-igw-${local.name_suffix}" })
+
+  lifecycle { prevent_destroy = true }
 }
 
 resource "aws_route_table" "public" {
@@ -34,11 +42,15 @@ resource "aws_route_table" "public" {
   }
 
   tags = merge(local.common_tags, { Name = "lsp-rt-${local.name_suffix}" })
+
+  lifecycle { prevent_destroy = true }
 }
 
 resource "aws_route_table_association" "public" {
   subnet_id      = aws_subnet.public.id
   route_table_id = aws_route_table.public.id
+
+  lifecycle { prevent_destroy = true }
 }
 
 resource "aws_security_group" "demo" {
@@ -95,6 +107,8 @@ resource "aws_security_group" "demo" {
   }
 
   tags = merge(local.common_tags, { Name = "lsp-sg-${local.name_suffix}" })
+
+  lifecycle { prevent_destroy = true }
 }
 
 # ---------------------------------------------------------------------------

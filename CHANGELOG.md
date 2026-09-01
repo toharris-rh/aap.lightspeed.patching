@@ -3,6 +3,40 @@
 All notable changes to `aap.lightspeed.patching` are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased — feature/satellite]
+
+### Added (2026-08-31)
+
+- **Red Hat Satellite integration** — `feature/satellite` branch replaces the
+  Red Hat CDN registration path with Satellite-managed content:
+  - `playbooks/register_rhel.yml` — installs Katello CA consumer RPM from
+    Satellite, registers via `subscription-manager` with org + activation key,
+    installs Satellite remote execution SSH key, then registers with Insights
+    (direct to HCC, not proxied through Satellite).
+  - `playbooks/unregister_rhel.yml` — explicit Satellite unregistration:
+    `insights-client --unregister`, `subscription-manager unregister/clean`,
+    and removes the Katello CA consumer RPM. All steps best-effort so teardown
+    succeeds even on a partially registered host.
+  - `aap_config/files/controller_credential_types.yml` — new
+    `Lightspeed Patching - Satellite Registration` custom credential type
+    injecting `SATELLITE_HOSTNAME`, `SATELLITE_ORG`, `SATELLITE_ACTIVATION_KEY`.
+  - `aap_config/files/controller_credentials.yml` — two new credentials:
+    built-in `Red Hat Satellite 6` for API auth, custom registration credential
+    for playbook env var injection.
+  - `aap_config/group_vars/all.yml` — Satellite vars from env lookups.
+  - `docs/dev-environment.sh.example` — Satellite section with placeholder vars.
+
+- **Teardown preserves VPC infrastructure** — `playbooks/teardown_vm_aws.yml`
+  now uses targeted `terraform destroy -target=aws_instance.rhel
+  -target=aws_key_pair.demo` so the VPC, subnet, IGW, route table, and security
+  group survive teardown. The persistent Satellite EC2 instance keeps network
+  connectivity between demo VM lifecycles.
+
+- **Terraform `prevent_destroy` on shared networking** — `terraform/main.tf`
+  adds `lifecycle { prevent_destroy = true }` to the VPC, subnet, IGW, route
+  table, association, and security group as a safety net against accidental
+  `terraform destroy` without targets.
+
 ## [Unreleased]
 
 ### Added (2026-08-31)

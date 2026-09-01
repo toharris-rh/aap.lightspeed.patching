@@ -2,64 +2,91 @@
 # ============================================================================
 # playbooks/register_rhel.yml
 # ============================================================================
-# Registers a new RHEL host to the Red Hat CDN and Red Hat Insights in a
-# single play. Must run after the host is reachable via SSH.
+# Registers a new RHEL host to Red Hat Satellite and Red Hat Insights.
+# Must run after the host is reachable via SSH.
 #
 # Step 0 — Hostname: set the OS hostname to the public FQDN BEFORE registering,
-#           so the host's canonical `fqdn` fact (reported to subscription-manager
-#           and Insights) matches the AAP inventory name and the CMDB CI name.
-# Step 1 — CDN: subscription-manager via the rhc system role + activation key.
-# Step 2 — Insights: installs insights-client and registers with
+#           so the canonical `fqdn` fact (reported to Satellite and Insights)
+#           matches the AAP inventory name and the ServiceNow CMDB CI name.
+# Step 1 — Satellite: install the Katello CA consumer RPM from the Satellite
+#           server, then register via subscription-manager using the Satellite
+#           org and activation key. Content is served from Satellite repos.
+# Step 2 — Satellite Remote Execution: install Satellite's SSH public key so
+#           Satellite RE can connect to this host alongside AAP.
+# Step 3 — Insights: installs insights-client and registers with
 #           --display-name={{ inventory_hostname }} so the public FQDN
 #           (not the private EC2 hostname) appears in console.redhat.com.
+#           insights-client goes direct to HCC (not proxied through Satellite).
 #
-# Credentials: Lightspeed Patching - Red Hat CDN  (RH_ORG_ID, RH_ACTIVATION_KEY)
+# Credentials: Lightspeed Patching - Satellite (SATELLITE_HOSTNAME,
+#                SATELLITE_ORG, SATELLITE_ACTIVATION_KEY)
 #              Lightspeed Patching - Linux Machine (SSH)
 # ============================================================================
 
-- name: Register RHEL to Red Hat CDN and Red Hat Insights
+- name: Register RHEL to Red Hat Satellite and Red Hat Insights
   hosts: all
   gather_facts: false
   become: true
 
   vars:
-    rh_org_id: "{{ lookup('ansible.builtin.env', 'RH_ORG_ID') }}"
-    rh_activation_key: "{{ lookup('ansible.builtin.env', 'RH_ACTIVATION_KEY') }}"
+    satellite_hostname: "{{ lookup('ansible.builtin.env', 'SATELLITE_HOSTNAME') }}"
+    satellite_org: "{{ lookup('ansible.builtin.env', 'SATELLITE_ORG') }}"
+    satellite_activation_key: "{{ lookup('ansible.builtin.env', 'SATELLITE_ACTIVATION_KEY') }}"
 
   tasks:
-    - name: Assert CDN registration credentials are set
+    - name: Assert Satellite registration credentials are set
       ansible.builtin.assert:
         that:
-          - rh_org_id | length > 0
-          - rh_activation_key | length > 0
-        fail_msg: "RH_ORG_ID and RH_ACTIVATION_KEY must be set (use the 'Lightspeed Patching - Red Hat CDN' credential)."
+          - satellite_hostname | length > 0
+          - satellite_org | length > 0
+          - satellite_activation_key | length > 0
+        fail_msg: "SATELLITE_HOSTNAME, SATELLITE_ORG, and SATELLITE_ACTIVATION_KEY must be set (use the 'Lightspeed Patching - Satellite' credential)."
 
     # ── Step 0: Hostname ──────────────────────────────────────────────────────
-    # Set the OS hostname to the public FQDN (the AAP inventory host name) BEFORE
-    # registering, so the canonical `fqdn` fact reported to the CDN and Insights
-    # matches the name used in AAP inventory and the ServiceNow CMDB CI.
-    - name: Set OS hostname to the public FQDN (before CDN/Insights registration)
+    # Set the OS hostname to the public FQDN BEFORE registering so the canonical
+    # fqdn reported to Satellite and Insights matches the AAP inventory name and
+    # the ServiceNow CMDB CI name.
+    - name: Set OS hostname to the public FQDN (before Satellite registration)
       ansible.builtin.hostname:
         name: "{{ inventory_hostname }}"
 
-    # ── Step 1: Red Hat CDN ───────────────────────────────────────────────────
-    - name: Register to Red Hat CDN (certified rhc system role)
-      ansible.builtin.include_role:
-        name: redhat.rhel_system_roles.rhc
-      vars:
-        rhc_state: present
-        # The org id is the TOP-LEVEL rhc_organization var — the role's
-        # subscription-manager task does org_id: "{{ rhc_organization }}".
-        # It is NOT read from rhc_auth (top level or under activation_keys);
-        # putting it there gives "org_id is required when using activationkey".
-        rhc_organization: "{{ rh_org_id }}"
-        rhc_auth:
-          activation_keys:
-            keys:
-              - "{{ rh_activation_key }}"
-        rhc_auto_attach: true
+    # ── Step 1: Red Hat Satellite ─────────────────────────────────────────────
+    # The Katello CA consumer RPM configures subscription-manager to trust the
+    # Satellite server's CA and point at it instead of the Red Hat CDN.
+    - name: Install Katello CA consumer RPM from Satellite
+      ansible.builtin.dnf:
+        name: "http://{{ satellite_hostname }}/pub/katello-ca-consumer-latest.noarch.rpm"
+        state: present
+        disable_gpg_check: true
 
-    # ── Step 2: Red Hat Insights ──────────────────────────────────────────────
+    - name: Register to Satellite via subscription-manager
+      ansible.builtin.command:
+        cmd: >-
+          subscription-manager register
+          --org={{ satellite_org }}
+          --activationkey={{ satellite_activation_key }}
+          --force
+      register: rhsm_reg
+      changed_when: "'system has been registered' in rhsm_reg.stdout"
+      failed_when: rhsm_reg.rc != 0 and 'system is already registered' not in rhsm_reg.stdout
+
+    - name: Show Satellite registration result
+      ansible.builtin.debug:
+        msg: "{{ rhsm_reg.stdout }}"
+
+    # ── Step 2: Satellite Remote Execution ────────────────────────────────────
+    # Installs Satellite's SSH public key so the Satellite RE feature can also
+    # connect to this host alongside AAP-driven automation.
+    - name: Install Satellite SSH public key for remote execution
+      ansible.posix.authorized_key:
+        user: "{{ ansible_user | default('ec2-user') }}"
+        key: "{{ lookup('url', 'https://' ~ satellite_hostname ~ ':9090/ssh/pubkey', validate_certs=False, split_lines=False) }}"
+        state: present
+
+    # ── Step 3: Red Hat Insights ──────────────────────────────────────────────
+    # insights-client goes direct to console.redhat.com (not proxied through
+    # Satellite). Display name set to the public FQDN so HCC shows the same
+    # name used in AAP inventory and the ServiceNow CMDB CI.
     - name: Install insights-client
       ansible.builtin.dnf:
         name: insights-client
@@ -91,7 +118,8 @@
         snow_log_ticket_number: "{{ ticket_number | default('') }}"
         snow_log_ticket_sys_id: "{{ ticket_sys_id | default('') }}"
         snow_log_message: >-
-          {{ inventory_hostname }}: Registered to Red Hat CDN
-          (org: {{ rh_org_id }}, key: {{ rh_activation_key }})
+          {{ inventory_hostname }}: Registered to Red Hat Satellite
+          ({{ satellite_hostname }}, org: {{ satellite_org }},
+          key: {{ satellite_activation_key }})
           and Red Hat Insights (display-name: {{ inventory_hostname }}).
       when: ticket_number is defined and ticket_number | length > 0

@@ -2,26 +2,47 @@
 # ============================================================================
 # playbooks/unregister_rhel.yml
 # ============================================================================
-# Unregisters a RHEL host from the Red Hat CDN and Red Hat Insights.
-# Uses the certified rhc system role with rhc_state: absent — handles both
-# subscription-manager and insights-client cleanup in one invocation.
+# Unregisters a RHEL host from Red Hat Satellite and Red Hat Insights.
+# Each step is best-effort (failed_when: false) so teardown succeeds cleanly
+# even if the host is partially registered or already cleaned up.
 #
 # Idempotent: if the host is already unregistered or unreachable (destroyed),
 # the play succeeds cleanly (ignore_unreachable: true).
 #
 # Credentials: Lightspeed Patching - Linux Machine (SSH)
-#              Lightspeed Patching - Red Hat CDN
+#              Lightspeed Patching - Satellite
 # ============================================================================
 
-- name: Unregister the RHEL host from the Red Hat CDN and Insights
+- name: Unregister the RHEL host from Red Hat Satellite and Insights
   hosts: all
   gather_facts: false
   become: true
   ignore_unreachable: true
 
+  vars:
+    satellite_hostname: "{{ lookup('ansible.builtin.env', 'SATELLITE_HOSTNAME') }}"
+
   tasks:
-    - name: Unregister from CDN + Insights (certified rhc role, state absent)
-      ansible.builtin.include_role:
-        name: redhat.rhel_system_roles.rhc
-      vars:
-        rhc_state: absent
+    - name: Unregister from Insights
+      ansible.builtin.command:
+        cmd: insights-client --unregister
+      changed_when: false
+      failed_when: false
+
+    - name: Unregister from Satellite (subscription-manager)
+      ansible.builtin.command:
+        cmd: subscription-manager unregister
+      changed_when: false
+      failed_when: false
+
+    - name: Clean subscription-manager local state
+      ansible.builtin.command:
+        cmd: subscription-manager clean
+      changed_when: false
+      failed_when: false
+
+    - name: Remove Katello CA consumer RPM
+      ansible.builtin.dnf:
+        name: "katello-ca-consumer-*"
+        state: absent
+      failed_when: false
