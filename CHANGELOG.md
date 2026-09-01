@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed (2026-09-01)
 
+- **`introduce_cve.yml`** — run `dnf clean all` after package downgrade so the
+  dnf cache doesn't satisfy `check-update --cve` from stale on-disk RPMs;
+  forces `patch_rhel.yml` to resolve against the actual Satellite-managed repos,
+  which exercises the CV version check and LCE promotion path when the content
+  hasn't been promoted yet.
+
 - **Satellite-aware CVE patching in `patch_rhel.yml`** — replaced the single
   `dnf upgrade --cve` task with a full Satellite content gate: (1) check if the
   fix is visible in current repos; (2) if not, look up the host's content view

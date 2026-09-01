@@ -32,6 +32,11 @@
         allow_downgrade: true
       register: dnf_result
 
+    - name: Clear dnf cache so patch_rhel sees only what Satellite publishes
+      ansible.builtin.command:
+        cmd: dnf clean all
+      changed_when: false
+
     - name: Confirm installed version
       ansible.builtin.command:
         cmd: "rpm -q {{ target_package }}"
