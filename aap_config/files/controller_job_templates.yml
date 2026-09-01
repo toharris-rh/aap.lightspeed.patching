@@ -138,6 +138,7 @@ controller_templates:
     credentials:
       - "{{ cred_linux }}"
       - "{{ cred_servicenow }}"
+      - "{{ cred_satellite }}"
     ask_limit_on_launch: true
     ask_variables_on_launch: true
 

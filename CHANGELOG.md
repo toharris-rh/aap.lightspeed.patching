@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased — feature/satellite]
 
+### Changed (2026-09-01)
+
+- **Satellite-aware CVE patching in `patch_rhel.yml`** — replaced the single
+  `dnf upgrade --cve` task with a full Satellite content gate: (1) check if the
+  fix is visible in current repos; (2) if not, look up the host's content view
+  and lifecycle environment from Satellite, verify the latest CV version contains
+  the CVE errata, promote that version to the host's LCE, and wait for the
+  Foreman task to complete; (3) re-confirm the fix is now available; (4) apply
+  via `{{ pkg_mgr }} upgrade -v -y --cve`. Uses `ansible.builtin.uri`
+  (`delegate_to: localhost`) against the Satellite API — no `redhat.satellite`
+  collection required. Patch RHEL JT now includes `Lightspeed Patching -
+  Satellite` credential so `SATELLITE_URL`, `SATELLITE_USERNAME`, and
+  `SATELLITE_PASSWORD` are injected.
+
 ### Fixed (2026-09-01)
 
 - **CVE-targeted patching via `dnf upgrade --cve`** — `patch_rhel.yml` now

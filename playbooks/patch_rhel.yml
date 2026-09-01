@@ -9,6 +9,8 @@
 #
 # Credentials: Lightspeed Patching - Linux Machine (SSH)
 #              Lightspeed Patching - ServiceNow (for snow_log)
+#              Lightspeed Patching - Satellite (SATELLITE_URL/USERNAME/PASSWORD
+#                for CV version check and lifecycle env promotion)
 # ============================================================================
 
 - name: Patch RHEL host
@@ -41,18 +43,197 @@
       register: dnf_result
       when: advisory_id | length == 0
 
-    # CVE IDs (CVE-YYYY-NNNNN) come from Insights via set_stats on the SNow CVE
-    # Remediation workflow. dnf upgrade --cve is the same action Insights generates
-    # in its remediation playbook — it finds and applies the advisory that fixes
-    # the CVE using Satellite's advisory metadata.
-    - name: Apply CVE fix recommended by Insights (dnf upgrade --cve)
-      ansible.builtin.command:
-        cmd: "dnf upgrade -y --cve {{ advisory_id }}"
-      register: dnf_result
-      changed_when: "'Nothing to do' not in dnf_result.stdout"
+    # ── Satellite-aware CVE patching ──────────────────────────────────────────
+    # 1. Check if dnf can already see the fix in the current repos.
+    # 2. If not (rc 0 = nothing to update): look up the host's content view
+    #    and lifecycle env in Satellite, verify the latest CV version has the
+    #    errata, promote that version to the host's LCE, then re-confirm.
+    # 3. Apply the fix once confirmed available (rc 100 = update available).
+    - name: Check if CVE fix is available in current repos
+      ansible.builtin.shell:
+        cmd: "{{ ansible_facts['pkg_mgr'] }} check-update -q --cve {{ advisory_id }}"
+      register: cve_check
+      failed_when: cve_check.rc != 0 and cve_check.rc != 100
+      changed_when: false
       when:
         - advisory_id | length > 0
         - advisory_id.startswith('CVE-')
+
+    # --- Satellite content check + promote (only when fix is not yet visible) --
+
+    - name: Look up Satellite host record to get content view and lifecycle env
+      ansible.builtin.uri:
+        url: "{{ satellite_url }}/api/hosts?search=name={{ inventory_hostname }}"
+        user: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        force_basic_auth: true
+        validate_certs: false
+      delegate_to: localhost
+      register: sat_host_info
+      when:
+        - advisory_id | length > 0
+        - advisory_id.startswith('CVE-')
+        - cve_check.rc == 0
+
+    - name: Set content view and lifecycle env facts from Satellite host record
+      ansible.builtin.set_fact:
+        _sat_cv_id: "{{ (sat_host_info.json.results | first).content_facet_attributes.content_view.id }}"
+        _sat_cv_name: "{{ (sat_host_info.json.results | first).content_facet_attributes.content_view.name }}"
+        _sat_lce_id: "{{ (sat_host_info.json.results | first).content_facet_attributes.lifecycle_environment.id }}"
+        _sat_lce_name: "{{ (sat_host_info.json.results | first).content_facet_attributes.lifecycle_environment.name }}"
+      when:
+        - advisory_id | length > 0
+        - advisory_id.startswith('CVE-')
+        - cve_check.rc == 0
+        - sat_host_info is defined
+
+    - name: Get latest content view version from Satellite
+      ansible.builtin.uri:
+        url: "{{ satellite_url }}/katello/api/content_view_versions?content_view_id={{ _sat_cv_id }}&per_page=1&order=version+DESC"
+        user: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        force_basic_auth: true
+        validate_certs: false
+      delegate_to: localhost
+      register: sat_cv_versions
+      when:
+        - advisory_id | length > 0
+        - advisory_id.startswith('CVE-')
+        - cve_check.rc == 0
+        - _sat_cv_id is defined
+
+    - name: Set latest CV version facts
+      ansible.builtin.set_fact:
+        _sat_cv_version_id: "{{ (sat_cv_versions.json.results | first).id }}"
+        _sat_cv_version: "{{ (sat_cv_versions.json.results | first).version }}"
+        _sat_cv_version_lce_ids: "{{ (sat_cv_versions.json.results | first).environments | map(attribute='id') | map('string') | list }}"
+      when:
+        - advisory_id | length > 0
+        - advisory_id.startswith('CVE-')
+        - cve_check.rc == 0
+        - sat_cv_versions is defined
+
+    - name: Check if latest CV version contains the CVE errata
+      ansible.builtin.uri:
+        url: "{{ satellite_url }}/katello/api/content_view_versions/{{ _sat_cv_version_id }}/errata?search=cve={{ advisory_id }}"
+        user: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        force_basic_auth: true
+        validate_certs: false
+      delegate_to: localhost
+      register: sat_errata_check
+      when:
+        - advisory_id | length > 0
+        - advisory_id.startswith('CVE-')
+        - cve_check.rc == 0
+        - _sat_cv_version_id is defined
+
+    - name: Fail if errata for CVE is not in the latest content view version
+      ansible.builtin.fail:
+        msg: >-
+          {{ advisory_id }} errata is not present in {{ _sat_cv_name }}
+          version {{ _sat_cv_version }}. A repo sync and CV publish is needed
+          before this CVE can be remediated.
+      when:
+        - advisory_id | length > 0
+        - advisory_id.startswith('CVE-')
+        - cve_check.rc == 0
+        - sat_errata_check is defined
+        - sat_errata_check.json.total == 0
+
+    - name: Promote latest CV version to host's lifecycle environment
+      ansible.builtin.uri:
+        url: "{{ satellite_url }}/katello/api/content_view_versions/{{ _sat_cv_version_id }}/promote"
+        method: POST
+        user: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        force_basic_auth: true
+        validate_certs: false
+        body_format: json
+        body:
+          environment_ids:
+            - "{{ _sat_lce_id | int }}"
+          force: false
+      delegate_to: localhost
+      register: sat_promote_task
+      when:
+        - advisory_id | length > 0
+        - advisory_id.startswith('CVE-')
+        - cve_check.rc == 0
+        - _sat_cv_version_id is defined
+        - _sat_lce_id | string not in _sat_cv_version_lce_ids
+        - sat_errata_check.json.total > 0
+
+    - name: Wait for Satellite CV promotion to complete
+      ansible.builtin.uri:
+        url: "{{ satellite_url }}/foreman_tasks/api/tasks/{{ sat_promote_task.json.id }}"
+        user: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        force_basic_auth: true
+        validate_certs: false
+      delegate_to: localhost
+      register: sat_task_status
+      until: sat_task_status.json.state == 'stopped'
+      retries: 30
+      delay: 10
+      when:
+        - sat_promote_task is defined
+        - sat_promote_task.json is defined
+        - sat_promote_task.json.id is defined
+
+    - name: Fail if Satellite CV promotion did not succeed
+      ansible.builtin.fail:
+        msg: "Satellite CV promotion task {{ sat_promote_task.json.id }} ended with result: {{ sat_task_status.json.result }}"
+      when:
+        - sat_task_status is defined
+        - sat_task_status.json is defined
+        - sat_task_status.json.result is defined
+        - sat_task_status.json.result != 'success'
+
+    - name: Re-check if CVE fix is now available after content promotion
+      ansible.builtin.shell:
+        cmd: "{{ ansible_facts['pkg_mgr'] }} check-update -q --cve {{ advisory_id }}"
+      register: cve_recheck
+      failed_when: cve_recheck.rc != 0 and cve_recheck.rc != 100
+      changed_when: false
+      when:
+        - advisory_id | length > 0
+        - advisory_id.startswith('CVE-')
+        - cve_check.rc == 0
+
+    - name: Fail if CVE fix is still not available after Satellite promotion
+      ansible.builtin.fail:
+        msg: >-
+          {{ advisory_id }} fix is still not available after promoting
+          {{ _sat_cv_name }} version {{ _sat_cv_version }} to {{ _sat_lce_name }}.
+          Check Satellite repo sync status and host subscription assignment.
+      when:
+        - advisory_id | length > 0
+        - advisory_id.startswith('CVE-')
+        - cve_check.rc == 0
+        - cve_recheck is defined
+        - cve_recheck.rc != 100
+
+    # --- Apply fix once confirmed available ------------------------------------
+
+    - name: Set CVE fix availability fact
+      ansible.builtin.set_fact:
+        _cve_fix_available: >-
+          {{ cve_check.rc == 100 or
+             (cve_recheck is defined and cve_recheck.rc is defined and cve_recheck.rc == 100) }}
+      when:
+        - advisory_id | length > 0
+        - advisory_id.startswith('CVE-')
+
+    - name: Apply CVE fix via Lightspeed remediation pattern
+      ansible.builtin.shell:
+        cmd: "{{ ansible_facts['pkg_mgr'] }} upgrade -v -y --cve {{ advisory_id }}"
+      register: dnf_result
+      changed_when: true
+      when:
+        - advisory_id | length > 0
+        - advisory_id.startswith('CVE-')
+        - _cve_fix_available | bool
 
     - name: Apply specific advisory or package
       ansible.builtin.dnf:
