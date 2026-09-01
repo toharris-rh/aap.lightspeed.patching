@@ -41,12 +41,27 @@
       register: dnf_result
       when: advisory_id | length == 0
 
-    - name: Apply specific advisory
+    # CVE IDs (CVE-YYYY-NNNNN) come from Insights via set_stats on the SNow CVE
+    # Remediation workflow. dnf upgrade --cve is the same action Insights generates
+    # in its remediation playbook — it finds and applies the advisory that fixes
+    # the CVE using Satellite's advisory metadata.
+    - name: Apply CVE fix recommended by Insights (dnf upgrade --cve)
+      ansible.builtin.command:
+        cmd: "dnf upgrade -y --cve {{ advisory_id }}"
+      register: dnf_result
+      changed_when: "'Nothing to do' not in dnf_result.stdout"
+      when:
+        - advisory_id | length > 0
+        - advisory_id.startswith('CVE-')
+
+    - name: Apply specific advisory or package
       ansible.builtin.dnf:
         name: "{{ advisory_id }}"
         state: latest
       register: dnf_result
-      when: advisory_id | length > 0
+      when:
+        - advisory_id | length > 0
+        - not advisory_id.startswith('CVE-')
 
     - name: Log patch result to ServiceNow
       ansible.builtin.include_role:
