@@ -53,7 +53,7 @@
       ansible.builtin.shell:
         cmd: "{{ ansible_facts['pkg_mgr'] }} check-update -q --cve {{ advisory_id }}"
       register: cve_check
-      failed_when: cve_check.rc != 0 and cve_check.rc != 100
+      failed_when: false
       changed_when: false
       when:
         - advisory_id | length > 0
@@ -73,7 +73,7 @@
       when:
         - advisory_id | length > 0
         - advisory_id.startswith('CVE-')
-        - cve_check.rc == 0
+        - cve_check.rc != 100
 
     - name: Set content view and lifecycle env facts from Satellite host record
       ansible.builtin.set_fact:
@@ -84,7 +84,7 @@
       when:
         - advisory_id | length > 0
         - advisory_id.startswith('CVE-')
-        - cve_check.rc == 0
+        - cve_check.rc != 100
         - sat_host_info is defined
 
     - name: Get latest content view version from Satellite
@@ -99,7 +99,7 @@
       when:
         - advisory_id | length > 0
         - advisory_id.startswith('CVE-')
-        - cve_check.rc == 0
+        - cve_check.rc != 100
         - _sat_cv_id is defined
 
     - name: Set latest CV version facts
@@ -110,7 +110,7 @@
       when:
         - advisory_id | length > 0
         - advisory_id.startswith('CVE-')
-        - cve_check.rc == 0
+        - cve_check.rc != 100
         - sat_cv_versions is defined
 
     - name: Check if latest CV version contains the CVE errata
@@ -125,7 +125,7 @@
       when:
         - advisory_id | length > 0
         - advisory_id.startswith('CVE-')
-        - cve_check.rc == 0
+        - cve_check.rc != 100
         - _sat_cv_version_id is defined
 
     - name: Fail if errata for CVE is not in the latest content view version
@@ -137,7 +137,7 @@
       when:
         - advisory_id | length > 0
         - advisory_id.startswith('CVE-')
-        - cve_check.rc == 0
+        - cve_check.rc != 100
         - sat_errata_check is defined
         - sat_errata_check.json.total == 0
 
@@ -159,7 +159,7 @@
       when:
         - advisory_id | length > 0
         - advisory_id.startswith('CVE-')
-        - cve_check.rc == 0
+        - cve_check.rc != 100
         - _sat_cv_version_id is defined
         - _sat_lce_id | string not in _sat_cv_version_lce_ids
         - sat_errata_check.json.total > 0
@@ -199,7 +199,7 @@
       when:
         - advisory_id | length > 0
         - advisory_id.startswith('CVE-')
-        - cve_check.rc == 0
+        - cve_check.rc != 100
 
     - name: Fail if CVE fix is still not available after Satellite promotion
       ansible.builtin.fail:
@@ -210,7 +210,7 @@
       when:
         - advisory_id | length > 0
         - advisory_id.startswith('CVE-')
-        - cve_check.rc == 0
+        - cve_check.rc != 100
         - cve_recheck is defined
         - cve_recheck.rc != 100
 
