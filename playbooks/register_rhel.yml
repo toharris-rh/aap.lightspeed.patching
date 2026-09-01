@@ -77,11 +77,20 @@
     # ── Step 2: Satellite Remote Execution ────────────────────────────────────
     # Installs Satellite's SSH public key so the Satellite RE feature can also
     # connect to this host alongside AAP-driven automation.
+    - name: Fetch Satellite SSH public key for remote execution
+      ansible.builtin.uri:
+        url: "https://{{ satellite_hostname }}:9090/ssh/pubkey"
+        return_content: true
+        validate_certs: false
+      register: satellite_ssh_pubkey
+      delegate_to: localhost
+
     - name: Install Satellite SSH public key for remote execution
-      ansible.posix.authorized_key:
-        user: "{{ ansible_user | default('ec2-user') }}"
-        key: "{{ lookup('url', 'https://' ~ satellite_hostname ~ ':9090/ssh/pubkey', validate_certs=False, split_lines=False) }}"
-        state: present
+      ansible.builtin.lineinfile:
+        path: "/home/{{ ansible_user | default('ec2-user') }}/.ssh/authorized_keys"
+        line: "{{ satellite_ssh_pubkey.content | trim }}"
+        create: true
+        mode: "0600"
 
     # ── Step 3: Red Hat Insights ──────────────────────────────────────────────
     # insights-client goes direct to console.redhat.com (not proxied through
