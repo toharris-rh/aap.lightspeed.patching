@@ -5,6 +5,29 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased — feature/satellite]
 
+### Fixed (2026-09-01)
+
+- **CVE-targeted patching via `dnf upgrade --cve`** — `patch_rhel.yml` now
+  has a CVE branch: when `advisory_id` starts with `CVE-`, runs
+  `dnf upgrade -y --cve {{ advisory_id }}` matching the action Insights
+  generates in its own remediation playbook. `insights_fetch_remediation.yml`
+  publishes `advisory_id` via `set_stats` so the value is properly resolved
+  by the time Patch RHEL runs (workflow node `extra_data` Jinja2 templates are
+  not resolved by AAP).
+
+- **Satellite RE SSH key fetch** — replaced `ansible.posix.authorized_key`
+  (not in the EE) with `ansible.builtin.uri` + `ansible.builtin.lineinfile`.
+  Fetch runs on the remote VM directly (same VPC as Satellite, port 9090
+  reachable without delegation).
+
+- **CDN credential removed from satellite branch CaC** — the Red Hat CDN
+  Registration credential type and instance are not needed on this branch;
+  removing them prevents load.yml async failures caused by stale cached job
+  results referencing the deleted credential.
+
+- **controller_projects.yml** — `scm_branch` set to `feature/satellite` so
+  AAP JTs pick up this branch's playbooks at runtime.
+
 ### Added (2026-08-31)
 
 - **Red Hat Satellite integration** — `feature/satellite` branch replaces the
