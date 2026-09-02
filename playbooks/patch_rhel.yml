@@ -71,6 +71,7 @@
         password: "{{ satellite_password }}"
         force_basic_auth: true
         validate_certs: false
+      become: false
       delegate_to: localhost
       register: sat_host_info
       when:
@@ -97,6 +98,7 @@
         password: "{{ satellite_password }}"
         force_basic_auth: true
         validate_certs: false
+      become: false
       delegate_to: localhost
       register: sat_cv_versions
       when:
@@ -123,6 +125,7 @@
         password: "{{ satellite_password }}"
         force_basic_auth: true
         validate_certs: false
+      become: false
       delegate_to: localhost
       register: sat_errata_check
       when:
@@ -157,6 +160,7 @@
           environment_ids:
             - "{{ _sat_lce_id | int }}"
           force: false
+      become: false
       delegate_to: localhost
       register: sat_promote_task
       when:
@@ -174,6 +178,7 @@
         password: "{{ satellite_password }}"
         force_basic_auth: true
         validate_certs: false
+      become: false
       delegate_to: localhost
       register: sat_task_status
       until: sat_task_status.json.state == 'stopped'
