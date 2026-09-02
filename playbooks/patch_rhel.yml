@@ -38,8 +38,7 @@
         snow_log_ticket_sys_id: "{{ ticket_sys_id | default('') }}"
         snow_log_message: >-
           {{ inventory_hostname }}: Starting patch run
-          {{ '(advisory: ' ~ advisory_id ~ ')' if advisory_id else '(full system update)' }}.
-          Kernel before: {{ ansible_kernel }}.
+          {{ '(advisory: ' ~ advisory_id ~ ')' if advisory_id else '(full system update). Kernel before: ' ~ ansible_kernel }}.
       when: ticket_number is defined and ticket_number | length > 0
 
     - name: Apply all available updates
