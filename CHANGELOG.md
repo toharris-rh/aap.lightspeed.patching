@@ -22,6 +22,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Foreman task until complete. Uses the Satellite credential (API calls only,
   no SSH). Wired into CaC (`controller_job_templates.yml`, `group_vars/all.yml`).
 
+### Changed (2026-09-02)
+
+- **`patch_rhel.yml` — ServiceNow work-note traceability for Satellite path** —
+  added four snow_log calls narrating each Satellite step: (1) fix not available
+  in current repos, checking Satellite; (2) errata confirmed in latest CV version,
+  promoting; (3) promotion complete, validating; (4) fix confirmed available,
+  applying patch. Also fixed `ticket_number`/`ticket_sys_id` defaulting to
+  `incident_number`/`incident_sys_id` from the EDA event — the existing Log patch
+  start/result notes were silently skipping on the EDA CVE path.
+
 ### Changed (2026-09-01)
 
 - **`introduce_cve.yml`** — run `dnf clean all` after package downgrade so the

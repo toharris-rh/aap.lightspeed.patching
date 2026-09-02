@@ -20,6 +20,10 @@
 
   vars:
     advisory_id: "{{ reported_cve | default('') }}"
+    # EDA CVE path passes incident_number/incident_sys_id; CHG path passes
+    # ticket_number/ticket_sys_id. Default both so snow_log fires on either.
+    ticket_number: "{{ incident_number | default('') }}"
+    ticket_sys_id: "{{ incident_sys_id | default('') }}"
     satellite_url: "{{ lookup('ansible.builtin.env', 'SATELLITE_URL') }}"
     satellite_username: "{{ lookup('ansible.builtin.env', 'SATELLITE_USERNAME') | default('admin', true) }}"
     satellite_password: "{{ lookup('ansible.builtin.env', 'SATELLITE_PASSWORD') }}"
@@ -63,6 +67,24 @@
         - advisory_id.startswith('CVE-')
 
     # --- Satellite content check + promote (only when fix is not yet visible) --
+
+    - name: Log — CVE fix not in current repos, checking Satellite content view
+      ansible.builtin.include_role:
+        name: snow_log
+      vars:
+        snow_log_resource: incident
+        snow_log_ticket_number: "{{ ticket_number }}"
+        snow_log_ticket_sys_id: "{{ ticket_sys_id }}"
+        snow_log_message: >-
+          {{ inventory_hostname }}: Fix for {{ advisory_id }} is not available
+          in the current Satellite repos. Checking Satellite content view to
+          locate the errata and promote content to this host's lifecycle
+          environment.
+      when:
+        - ticket_number | length > 0
+        - advisory_id | length > 0
+        - advisory_id.startswith('CVE-')
+        - cve_check.rc != 100
 
     - name: Look up Satellite host record to get content view and lifecycle env
       ansible.builtin.uri:
@@ -134,6 +156,24 @@
         - cve_check.rc != 100
         - _sat_cv_version_id is defined
 
+    - name: Log — errata found in latest content view version
+      ansible.builtin.include_role:
+        name: snow_log
+      vars:
+        snow_log_resource: incident
+        snow_log_ticket_number: "{{ ticket_number }}"
+        snow_log_ticket_sys_id: "{{ ticket_sys_id }}"
+        snow_log_message: >-
+          {{ inventory_hostname }}: Errata for {{ advisory_id }} confirmed in
+          Satellite content view {{ _sat_cv_name }} version {{ _sat_cv_version }}.
+          Promoting version {{ _sat_cv_version }} to {{ _sat_lce_name }} lifecycle
+          environment.
+      when:
+        - ticket_number | length > 0
+        - _sat_cv_version is defined
+        - sat_errata_check is defined
+        - sat_errata_check.json.total | int > 0
+
     - name: Fail if errata for CVE is not in the latest content view version
       ansible.builtin.fail:
         msg: >-
@@ -190,6 +230,23 @@
         - sat_promote_task.json is defined
         - sat_promote_task.json.id is defined
 
+    - name: Log — Satellite content view promotion complete
+      ansible.builtin.include_role:
+        name: snow_log
+      vars:
+        snow_log_resource: incident
+        snow_log_ticket_number: "{{ ticket_number }}"
+        snow_log_ticket_sys_id: "{{ ticket_sys_id }}"
+        snow_log_message: >-
+          {{ inventory_hostname }}: Satellite promotion complete —
+          {{ _sat_cv_name }} version {{ _sat_cv_version }} is now active in
+          {{ _sat_lce_name }}. Validating that {{ advisory_id }} fix is now
+          visible to this host.
+      when:
+        - ticket_number | length > 0
+        - sat_task_status is defined
+        - sat_task_status.json.result == 'success'
+
     - name: Fail if Satellite CV promotion did not succeed
       ansible.builtin.fail:
         msg: "Satellite CV promotion task {{ sat_promote_task.json.id }} ended with result: {{ sat_task_status.json.result }}"
@@ -222,6 +279,23 @@
         - cve_check.rc != 100
         - cve_recheck is defined
         - cve_recheck.rc != 100
+
+    - name: Log — CVE fix confirmed available, applying patch
+      ansible.builtin.include_role:
+        name: snow_log
+      vars:
+        snow_log_resource: incident
+        snow_log_ticket_number: "{{ ticket_number }}"
+        snow_log_ticket_sys_id: "{{ ticket_sys_id }}"
+        snow_log_message: >-
+          {{ inventory_hostname }}: Fix for {{ advisory_id }} is now visible in
+          repos. Applying patch via dnf upgrade --cve {{ advisory_id }}.
+      when:
+        - ticket_number | length > 0
+        - advisory_id | length > 0
+        - advisory_id.startswith('CVE-')
+        - cve_recheck is defined
+        - cve_recheck.rc == 100
 
     # --- Apply fix once confirmed available ------------------------------------
 
