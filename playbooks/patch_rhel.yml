@@ -311,7 +311,7 @@
       ansible.builtin.shell:
         cmd: "{{ ansible_facts['pkg_mgr'] }} upgrade -v -y --cve {{ advisory_id }}"
       register: _dnf_cve_result
-      changed_when: true
+      changed_when: "'Nothing to do' not in _dnf_cve_result.stdout"
       when:
         - advisory_id | length > 0
         - advisory_id.startswith('CVE-')
@@ -342,13 +342,23 @@
           {{ inventory_hostname }}: Patch complete.
           {% if advisory_id.startswith('CVE-') %}CVE fix applied via dnf upgrade --cve {{ advisory_id }}.
           {% else %}{{ dnf_result.results | length if dnf_result.results is defined else 0 }} packages updated.
-          {% endif %}Reboot required: {{ dnf_result.changed | bool }}.
+          {% endif %}Reboot required: {{ (_needs_restarting.rc | default(0)) == 1 }}.
       when: ticket_number is defined and ticket_number | length > 0
 
-    - name: Reboot if kernel or critical packages updated
+    - name: Check whether a reboot is actually required
+      ansible.builtin.command:
+        cmd: dnf needs-restarting -r
+      register: _needs_restarting
+      changed_when: false
+      failed_when: false
+      when: dnf_result is defined and dnf_result.changed | bool
+
+    - name: Reboot if OS signals a restart is required
       ansible.builtin.reboot:
         reboot_timeout: 300
-      when: dnf_result.changed
+      when:
+        - _needs_restarting is defined
+        - _needs_restarting.rc == 1
 
     # Re-upload to Red Hat Insights so its vulnerability view reflects the
     # PATCHED package state. register_rhel.yml uploads the pre-patch snapshot at
