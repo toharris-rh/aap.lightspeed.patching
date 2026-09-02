@@ -160,6 +160,7 @@
           environment_ids:
             - "{{ _sat_lce_id | int }}"
           force: false
+        status_code: [200, 202]
       become: false
       delegate_to: localhost
       register: sat_promote_task
