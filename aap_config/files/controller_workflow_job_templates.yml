@@ -148,13 +148,14 @@ controller_workflows:
 
   # ── SNow CVE Remediation ───────────────────────────────────────────────────
   # Triggered by EDA when a CVE_INCIDENT event arrives on the ServiceNow
-  # event stream. Chains: link CMDB CI → fetch Insights remediation plan →
-  # patch the affected host. No CHG step for now (to be added later).
+  # event stream. Chains: link CMDB CI → patch the affected host.
+  # advisory_id arrives directly from the EDA event extra_vars so the
+  # Fetch Insights Remediation step is not needed on this branch.
   #
   # Inputs (from EDA run_workflow_template extra_vars + limit):
   #   incident_number, incident_sys_id   — INC identifiers for snow_log
   #   host_fqdn                          — host FQDN for CI lookup
-  #   reported_cve                       — CVE ID from the Insights payload
+  #   reported_cve / advisory_id         — CVE ID from the Insights payload
   #   limit (workflow-level)             — set to host_fqdn by the rulebook
   - name: "{{ workflow_snow_cve_remediation_name }}"
     organization: "{{ my_organization }}"
@@ -164,11 +165,6 @@ controller_workflows:
     simplified_workflow_nodes:
       - identifier: link_ci
         unified_job_template: "{{ jt_snow_relate_cmdb }}"
-        success_nodes:
-          - fetch_remediation
-
-      - identifier: fetch_remediation
-        unified_job_template: "{{ jt_insights_fetch_remediation }}"
         success_nodes:
           - patch_host
 

@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased — feature/satellite]
 
+### Changed (2026-09-01)
+
+- **SNow CVE Remediation workflow** — removed `Fetch Insights Remediation`
+  node; `link_ci` now wires directly to `patch_host`. `advisory_id` arrives
+  from the EDA event extra_vars so the Insights remediation lookup step adds
+  no value on the Satellite branch (and caused 10-15 min retry delays).
+
 ### Added (2026-09-01)
 
 - **`playbooks/satellite_demo_reset.yml` + Lightspeed Patching - Demo Reset JT** —
