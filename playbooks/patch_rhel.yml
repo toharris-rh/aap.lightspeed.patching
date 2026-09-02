@@ -120,7 +120,7 @@
 
     - name: Check if latest CV version contains the CVE errata
       ansible.builtin.uri:
-        url: "{{ satellite_url }}/katello/api/content_view_versions/{{ _sat_cv_version_id }}/errata?search=cve={{ advisory_id }}"
+        url: "{{ satellite_url }}/katello/api/errata?content_view_version_id={{ _sat_cv_version_id }}&search=cve={{ advisory_id }}&per_page=1"
         user: "{{ satellite_username }}"
         password: "{{ satellite_password }}"
         force_basic_auth: true
