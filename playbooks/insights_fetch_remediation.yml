@@ -118,7 +118,7 @@
       # Insights re-scans lag a freshly introduced CVE; wait for it to appear.
       until: >-
         vuln_resp.json.data | default([]) | selectattr('id', 'equalto', fetch_cve) | list | length > 0
-      retries: 30
+      retries: 45
       delay: 20
 
     - name: Capture the CVE record
