@@ -28,6 +28,10 @@
   gather_facts: false
 
   vars:
+    satellite_url: "{{ lookup('ansible.builtin.env', 'SATELLITE_URL') }}"
+    satellite_username: "{{ lookup('ansible.builtin.env', 'SATELLITE_USERNAME') | default('admin', true) }}"
+    satellite_password: "{{ lookup('ansible.builtin.env', 'SATELLITE_PASSWORD') }}"
+    satellite_org: "{{ lookup('ansible.builtin.env', 'SATELLITE_ORG') }}"
     satellite_cv_name: "RHEL9"
     satellite_lce_name: "Development"
     satellite_reset_cv_version: ""

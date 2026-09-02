@@ -138,7 +138,7 @@ controller_templates:
     credentials:
       - "{{ cred_linux }}"
       - "{{ cred_servicenow }}"
-      - "{{ cred_satellite }}"
+      - "{{ cred_satellite_api }}"
     ask_limit_on_launch: true
     ask_variables_on_launch: true
 
@@ -168,7 +168,7 @@ controller_templates:
     playbook: playbooks/satellite_demo_reset.yml
     execution_environment: "{{ my_execution_environment }}"
     credentials:
-      - "{{ cred_satellite }}"
+      - "{{ cred_satellite_api }}"
     survey_enabled: true
     survey_spec:
       name: ""

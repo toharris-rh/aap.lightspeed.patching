@@ -20,6 +20,9 @@
 
   vars:
     advisory_id: "{{ reported_cve | default('') }}"
+    satellite_url: "{{ lookup('ansible.builtin.env', 'SATELLITE_URL') }}"
+    satellite_username: "{{ lookup('ansible.builtin.env', 'SATELLITE_USERNAME') | default('admin', true) }}"
+    satellite_password: "{{ lookup('ansible.builtin.env', 'SATELLITE_PASSWORD') }}"
 
   tasks:
     - name: Log patch start to ServiceNow

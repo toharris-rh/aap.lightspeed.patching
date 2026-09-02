@@ -67,6 +67,7 @@ satellite_activation_key: "{{ lookup('ansible.builtin.env', 'SATELLITE_ACTIVATIO
 
 cred_satellite: "Lightspeed Patching - Satellite"
 cred_satellite_reg: "Lightspeed Patching - Satellite Registration"
+cred_satellite_api: "Lightspeed Patching - Satellite API"
 
 # --- Red Hat CDN (kept for main branch; not used on feature/satellite) -------
 rh_org_id: "{{ lookup('ansible.builtin.env', 'RH_ORG_ID') | default('', true) }}"
