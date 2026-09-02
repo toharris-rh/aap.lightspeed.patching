@@ -19,7 +19,7 @@
   become: true
 
   vars:
-    advisory_id: ""   # set when patching a specific advisory
+    advisory_id: "{{ reported_cve | default('') }}"
 
   tasks:
     - name: Log patch start to ServiceNow
