@@ -131,6 +131,7 @@
           environment_ids:
             - "{{ _sat_lce_id | int }}"
           force: true
+        status_code: [200, 202]
       register: sat_promote_task
 
     - name: Wait for Satellite promotion task to complete
