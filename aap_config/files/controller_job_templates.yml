@@ -187,11 +187,11 @@ controller_templates:
           required: true
           default: "Development"
         - question_name: Broken CV version
-          question_description: "CV version number to restore (the filtered version without the patched openssl, e.g. '2.0')"
+          question_description: "CV version number to restore (the filtered version without the patched openssl)"
           variable: satellite_reset_cv_version
           type: text
           required: true
-          default: ""
+          default: "5.0"
 
   # ── Demo Setup: Introduce CVE ──────────────────────────────────────────────
   # Downgrades a package (cred_linux), then self-POSTs the detected CVE to the
