@@ -191,7 +191,7 @@ controller_templates:
           variable: satellite_reset_cv_version
           type: text
           required: true
-          default: "5.0"
+          default: "7.0"
 
   # ── Demo Setup: Introduce CVE ──────────────────────────────────────────────
   # Downgrades a package (cred_linux), then self-POSTs the detected CVE to the
