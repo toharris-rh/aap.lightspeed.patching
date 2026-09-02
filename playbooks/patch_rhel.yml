@@ -365,7 +365,8 @@
       changed_when: false
       failed_when: false
 
-    - name: Publish patched hosts as workflow artifact
+    - name: Publish patched hosts and job ID as workflow artifacts
       ansible.builtin.set_stats:
         data:
           patched_hosts: "{{ inventory_hostname }}"
+          patch_rhel_job_id: "{{ awx_job_id | default(tower_job_id | default('')) }}"

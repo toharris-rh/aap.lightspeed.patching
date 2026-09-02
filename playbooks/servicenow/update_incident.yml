@@ -44,29 +44,28 @@
     inc_success_comment: |-
       Automated remediation completed successfully.
 
-      CVE:              {{ reported_cve | default('n/a') }}
-      Synopsis:         {{ cve_synopsis | default('n/a') }}
-      Host:             {{ host_fqdn | default('n/a') }}
-      Advisory:         {{ advisory_id | default('n/a') }}
-      Patched hosts:    {{ patched_hosts | default('n/a') }}
-      AAP Job ID:       {{ patch_my_job_id | default('n/a') }}
-      Remediation plan: {{ remediation_plan_name | default('n/a') }}
+      CVE:           {{ reported_cve | default(advisory_id | default('n/a')) }}
+      Host:          {{ host_fqdn | default('n/a') }}
+      Patched hosts: {{ patched_hosts | default('n/a') }}
+      AAP Job ID:    {{ patch_rhel_job_id | default('n/a') }}
 
-      [Insights Remediation Playbook]
-      {{ remediation_playbook_content | default('n/a') }}
+      [Satellite Content Promotion]
+      The CVE fix was not available in the host's current Satellite lifecycle
+      environment. Lightspeed Patching located the errata in the latest content
+      view version, promoted it to the Development lifecycle environment, and
+      applied the fix via dnf upgrade --cve. See the work notes above for the
+      step-by-step Satellite content management trail.
 
       Resolving this incident.
 
     inc_failure_comment: |-
       Automated remediation did not complete.
 
-      CVE:           {{ reported_cve | default('n/a') }}
-      Synopsis:      {{ cve_synopsis | default('n/a') }}
-      Host:          {{ host_fqdn | default('n/a') }}
-      Advisory:      {{ advisory_id | default('n/a') }}
-      Failed hosts:  {{ failed_hosts | default('n/a') }}
-      AAP Job ID:    {{ patch_my_job_id | default('n/a') }}
-      Error:         {{ patch_my_error | default('see Ansible job output') }}
+      CVE:          {{ reported_cve | default(advisory_id | default('n/a')) }}
+      Host:         {{ host_fqdn | default('n/a') }}
+      Failed hosts: {{ failed_hosts | default('n/a') }}
+      AAP Job ID:   {{ patch_rhel_job_id | default('n/a') }}
+      Error:        {{ patch_my_error | default('see Ansible job output') }}
 
     _comment_map:
       in_progress: "{{ inc_in_progress_comment }}"
