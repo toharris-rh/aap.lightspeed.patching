@@ -56,7 +56,7 @@
     #    errata, promote that version to the host's LCE, then re-confirm.
     # 3. Apply the fix once confirmed available (rc 100 = update available).
     - name: Check if CVE fix is available in current repos
-      ansible.builtin.shell:
+      ansible.builtin.command:
         cmd: "{{ ansible_facts['pkg_mgr'] }} check-update -q --cve {{ advisory_id }}"
       register: cve_check
       failed_when: false
@@ -256,7 +256,7 @@
         - sat_task_status.json.result != 'success'
 
     - name: Re-check if CVE fix is now available after content promotion
-      ansible.builtin.shell:
+      ansible.builtin.command:
         cmd: "{{ ansible_facts['pkg_mgr'] }} check-update -q --cve {{ advisory_id }}"
       register: cve_recheck
       failed_when: cve_recheck.rc != 0 and cve_recheck.rc != 100
@@ -308,7 +308,7 @@
         - advisory_id.startswith('CVE-')
 
     - name: Apply CVE fix via Lightspeed remediation pattern
-      ansible.builtin.shell:
+      ansible.builtin.command:
         cmd: "{{ ansible_facts['pkg_mgr'] }} upgrade -v -y --cve {{ advisory_id }}"
       register: _dnf_cve_result
       changed_when: "'Nothing to do' not in _dnf_cve_result.stdout"
