@@ -33,18 +33,40 @@ ServiceNow catalog order → EDA event stream → rulebook servicenow_events.yml
 
 ### Path 2 — Automated CVE Remediation (INC-driven, Insights→EDA native)
 
+**main branch:**
 ```
 Red Hat Insights detects CVE on registered host
   → introduce_cve.yml self-POSTs event (or native Insights ~daily sweep)
   → AAP EDA event stream "Lightspeed Patching - Insights Event Stream"
-  → rulebook insights_vulnerability_events.yml  (match application=vulnerability + new-cve-*)
+  → rulebook insights_vulnerability_events.yml
   → workflow "Lightspeed Patching - Automated CVE Remediation"
-      ├── insights_fetch_remediation.yml  → Insights UUID → remediation==2 → create plan → download playbook
-      │     publishes: has_automated_remediation, remediation_playbook_content, host_fqdn, etc. (set_stats)
-      └── [success] create_cve_incident.yml  → INC with cmdb_ci + task_ci + playbook work note
-            publishes: cve_incident_number, cve_incident_sys_id (set_stats)
-      [Slices 4-7: Standard Change, run remediation, proof-of-fix, close-out — future]
+      ├── insights_fetch_remediation.yml  → Insights UUID → create plan → download playbook
+      │     publishes: advisory_id, remediation_playbook_content, etc. (set_stats)
+      └── [success] create_cve_incident.yml  → INC with playbook work note
 ```
+
+**feature/satellite branch** (SNow CVE Demo + EDA path):
+```
+introduce_cve.yml (openssl downgrade + dnf clean all + insights-client)
+  → publishes pinned_cve via set_stats → send_cve_to_snow.yml
+  → ServiceNow INC created → Business Rule POSTs to EDA event stream
+  → rulebook "Listen for ServiceNow incidents from Red Hat Insights"
+  → workflow "Lightspeed Patching - SNow CVE Remediation"
+      ├── SNow Relate CMDB CI to Incident
+      └── Patch RHEL  (advisory_id from EDA reported_cve; Satellite CV promotion path)
+            ├── [success] SNow Close Incident
+            └── [failure] SNow Update Incident
+```
+
+`advisory_id` arrives from the EDA event as `reported_cve` — no intermediate
+`insights_fetch_remediation` step. `patch_rhel.yml` defaults
+`advisory_id: "{{ reported_cve | default('') }}"`.
+
+`send_cve_to_snow.yml` has two CVE-data paths:
+- **Pinned** (`pinned_cve` set via `introduce_cve.yml` set_stats): queries
+  `/api/vulnerability/v1/cves/{cve}` directly — instant, no scan timing wait.
+- **Auto-detect** (`pinned_cve` empty): queries host CVE list, requires 60s
+  wait for Insights to process the upload.
 
 Full design doc: `docs/servicenow-integration.md`.
 SNow-side setup: `servicenow/README.md`. snow_log role: `docs/snow-log.md`.

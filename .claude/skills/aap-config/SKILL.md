@@ -243,26 +243,92 @@ Workflow nodes pass data between each other using `set_stats` (Ansible's
 artifact publishing mechanism), not extra_vars injection:
 
 - **EDA rulebook** fires `run_workflow_template` with `extra_vars:
-  {affected_host, reported_cve}` from the event payload.
-- **`insights_fetch_remediation.yml`** consumes those and publishes:
-  `has_automated_remediation`, `insights_uuid`, `host_fqdn`, `reported_cve`,
-  `remediation_id`, `remediation_playbook_content`, etc.
-- **`create_cve_incident.yml`** consumes the above and publishes:
-  `cve_incident_number`, `cve_incident_sys_id`.
+  {affected_host, reported_cve, host_fqdn, incident_number, incident_sys_id}`
+  from the event payload.
+- **`patch_rhel.yml`** (Satellite branch) defaults `advisory_id` to
+  `reported_cve` — no intermediate step needed to publish it.
+- Each downstream node automatically receives all previously-published
+  `set_stats` artifacts plus the workflow-level extra_vars.
 
 The workflow must have **`ask_variables_on_launch: true`** so the event's vars
-propagate into the first node. Each downstream node automatically receives all
-previously-published `set_stats` artifacts.
+propagate into the first node.
+
+**`advisory_id` vs `reported_cve`**: The EDA event publishes `reported_cve`.
+Previously `insights_fetch_remediation.yml` re-published it as `advisory_id`
+via `set_stats`. On the Satellite branch that step is removed; `patch_rhel.yml`
+now defaults `advisory_id: "{{ reported_cve | default('') }}"` so it resolves
+directly from the EDA event extra_vars.
+
+### SNow CVE Remediation workflow (feature/satellite branch)
+
+The node chain is simplified — `insights_fetch_remediation` removed because
+`advisory_id` comes directly from the EDA event:
+
+```
+link_ci (SNow Relate CMDB CI to Incident)
+  └── patch_host (Patch RHEL)
+        ├── [success] close_incident (SNow Close Incident)
+        └── [failure] update_inc_failure (SNow Update Incident)
+```
+
+### EDA event stream test_mode
+
+The EDA event stream has a **test_mode** flag (set via the "Test" button in the
+AAP UI). When `test_mode: true`, events are received and stored in the stream's
+`test_content` field but **NOT forwarded** to rulebook activations — EDA never
+triggers. This is a common cause of "EDA isn't firing" issues.
+
+Check and disable via API:
+```bash
+curl -sk "$BASE/api/eda/v1/event-streams/1/" | python3 -c "import sys,json; print(json.load(sys.stdin).get('test_mode'))"
+curl -sk -X PATCH -H "Content-Type: application/json" -d '{"test_mode":false}' "$BASE/api/eda/v1/event-streams/1/"
+```
+
+### Satellite API integration gotchas (feature/satellite branch)
+
+Confirmed working patterns from `patch_rhel.yml` and `satellite_demo_reset.yml`:
+
+**Built-in Satellite 6 credential type has NO injectors** — `injectors: {}`.
+It cannot supply env vars to playbooks. Use a custom credential type instead:
+```yaml
+- name: "Lightspeed Patching - Satellite API"
+  credential_type: "Lightspeed Patching - Satellite API"   # custom type
+  inputs: { satellite_url, satellite_username, satellite_password, satellite_org }
+  # injectors: SATELLITE_URL, SATELLITE_USERNAME, SATELLITE_PASSWORD, SATELLITE_ORG
+```
+
+**`delegate_to: localhost` inherits `become: true`** — EE containers have no
+`sudo`. Add `become: false` to every `delegate_to: localhost` task in a play
+that has `become: true` at the play level, or all API tasks fail with
+`sudo: command not found`.
+
+**Satellite promote API returns 202, not 200** — the Katello promote endpoint
+is async. The task ID is in the 202 body. Add `status_code: [200, 202]` to the
+`uri` task and poll `/foreman_tasks/api/tasks/{id}` until `state: stopped`.
+
+**Correct errata endpoint for CV version check**:
+- ✅ `GET /katello/api/errata?content_view_version_id={id}&search=cve={cve}&per_page=1`
+- ❌ `GET /katello/api/content_view_versions/{id}/errata` — **404, does not exist**
+
+**CV version ordering matters for the demo**: the "broken" (filtered) version
+must have a LOWER version number than the "good" (unfiltered) version so
+`patch_rhel.yml`'s "get latest CV version" query finds the good one.
 
 ## Conventions for editing CaC
 
 - **Idempotent, additive (but not subtractive)** — re-running `load.yml` is
   safe; it creates or updates objects but **never deletes** them. This means
   orphaned nodes (e.g. workflow nodes removed from `files/` but still in AAP)
-  survive across re-runs. When you restructure a workflow and orphaned nodes
-  remain, **delete the workflow object in AAP and re-run `load.yml`** to
-  recreate it clean. Use the controller API or the AAP UI to delete, then let
-  CaC rebuild from the definitions in `files/`.
+  survive across re-runs. **Critical gotcha**: when you remove a node from
+  `simplified_workflow_nodes`, CaC removes its *edges* (no other node references
+  it as a success/failure target) but the node object itself stays. An orphaned
+  node with no predecessors becomes a **root node** — it fires automatically at
+  workflow start, in parallel with the real first step. Delete it explicitly:
+  ```bash
+  curl -sk -X DELETE -u "$U:$P" "$BASE/api/controller/v2/workflow_job_template_nodes/{id}/"
+  ```
+  Find orphaned nodes: check which node IDs have no predecessors in the workflow
+  node list (`/api/controller/v2/workflow_job_templates/{id}/workflow_nodes/`).
 - **No duplicate top-level keys** across `files/*.yml`.
 - **Names live in `group_vars/all.yml`**, referenced by var everywhere — don't
   hard-code object names in `files/`.
