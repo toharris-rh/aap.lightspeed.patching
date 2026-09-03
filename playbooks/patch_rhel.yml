@@ -244,6 +244,7 @@
       when:
         - ticket_number | length > 0
         - sat_task_status is defined
+        - sat_task_status.json is defined
         - sat_task_status.json.result == 'success'
 
     - name: Fail if Satellite CV promotion did not succeed
