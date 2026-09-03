@@ -74,15 +74,95 @@ result=$(curl -sk -u "${SN_USERNAME}:${SN_PASSWORD}" \
 check "ServiceNow" "$result"
 
 # Provisioned hosts
-result=$(curl -sk -u "${AAP_CONTROLLER_USERNAME}:${AAP_CONTROLLER_PASSWORD}" \
-    "${AAP_HOSTNAME}/api/controller/v2/hosts/?page_size=20" \
-    | python3 -c "
+hosts_json=$(curl -sk -u "${AAP_CONTROLLER_USERNAME}:${AAP_CONTROLLER_PASSWORD}" \
+    "${AAP_HOSTNAME}/api/controller/v2/hosts/?page_size=20" 2>/dev/null || echo "{}")
+result=$(echo "$hosts_json" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
 hosts = [h['name'] for h in d.get('results', []) if h.get('enabled') and h['name'] != 'localhost']
 print(f\"{len(hosts)} host(s): {', '.join(hosts) if hosts else 'none provisioned'}\")
 " 2>/dev/null || echo "FAIL")
 check "Provisioned hosts" "$result"
+
+# Capture demo host for downstream checks
+demo_host=$(echo "$hosts_json" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+hosts = [h['name'] for h in d.get('results', []) if h.get('enabled') and h['name'] != 'localhost']
+print(hosts[0] if hosts else '')
+" 2>/dev/null || echo "")
+
+# Satellite: demo VM is registered
+if [[ -n "$demo_host" ]]; then
+    result=$(curl -sk -u "${SATELLITE_USERNAME}:${SATELLITE_PASSWORD}" \
+        "${SATELLITE_URL}/api/v2/hosts?search=name%3D${demo_host}&per_page=1&include=content_facet_attributes" \
+        | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+total = d.get('total', 0)
+if total > 0:
+    h = d['results'][0]
+    cfe = h.get('content_facet_attributes', {})
+    cves = cfe.get('content_view_environments', [])
+    if cves:
+        cv = cves[0].get('content_view', {})
+        lce = cves[0].get('lifecycle_environment', {})
+        print(f\"registered (cv={cv.get('name','?')} v{cv.get('content_view_version','?')}, lce={lce.get('name','?')})\")
+    else:
+        print('registered (cv/lce unknown)')
+else:
+    print('FAIL: host not found in Satellite — run Register RHEL JT')
+" 2>/dev/null || echo "FAIL")
+    check "Satellite host registration" "$result"
+else
+    echo "$FAIL  Satellite host registration: skipped — no demo host found"
+    ok=false
+fi
+
+# Insights: demo VM is registered
+if [[ -n "$demo_host" ]]; then
+    insights_token=$(curl -sk -X POST \
+        "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token" \
+        -d "grant_type=client_credentials&client_id=${INSIGHTS_CLIENT_ID}&client_secret=${INSIGHTS_CLIENT_SECRET}" \
+        | python3 -c "import sys,json; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null || echo "")
+    if [[ -n "$insights_token" ]]; then
+        result=$(curl -sk \
+            -H "Authorization: Bearer ${insights_token}" \
+            "https://console.redhat.com/api/inventory/v1/hosts?display_name=${demo_host}&per_page=1" \
+            | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+total = d.get('total', 0)
+if total > 0:
+    h = d['results'][0]
+    print(f\"registered (insights_id={h.get('insights_id','?')[:8]}...)\")
+else:
+    print('FAIL: host not in Insights inventory — run insights-client --register on host')
+" 2>/dev/null || echo "FAIL")
+    else
+        result="FAIL: could not get Insights token — check INSIGHTS_CLIENT_ID/SECRET"
+    fi
+    check "Insights registration" "$result"
+else
+    echo "$FAIL  Insights registration: skipped — no demo host found"
+    ok=false
+fi
+
+# ServiceNow: Business Rule that triggers EDA must be active
+result=$(curl -sk -u "${SN_USERNAME}:${SN_PASSWORD}" \
+    "${SN_HOST}/api/now/table/sys_script?sysparm_query=name=Harris+-+Inc&sysparm_fields=name,active&sysparm_limit=1" \
+    | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+results = d.get('result', [])
+if not results:
+    print('FAIL: Business Rule not found — check ServiceNow instance')
+elif results[0].get('active') == 'true':
+    print('active')
+else:
+    print('FAIL: Business Rule is inactive — EDA will not receive SNow incidents')
+" 2>/dev/null || echo "FAIL")
+check "SNow Business Rule (Harris - Inc)" "$result"
 
 # Satellite: CV lifecycle state — Development must be behind the latest version
 result=$(curl -sk -u "${SATELLITE_USERNAME}:${SATELLITE_PASSWORD}" \
