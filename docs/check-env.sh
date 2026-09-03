@@ -107,7 +107,12 @@ if total > 0:
     if cves:
         cv = cves[0].get('content_view', {})
         lce = cves[0].get('lifecycle_environment', {})
-        print(f\"registered (cv={cv.get('name','?')} v{cv.get('content_view_version','?')}, lce={lce.get('name','?')})\")
+        lce_name = lce.get('name', '?')
+        cv_ver = cv.get('content_view_version', '?')
+        if lce_name != 'Development':
+            print(f\"FAIL: host is in lce={lce_name}, expected Development — update host LCE in Satellite\")
+        else:
+            print(f\"registered (cv={cv.get('name','?')} v{cv_ver}, lce={lce_name})\")
     else:
         print('registered (cv/lce unknown)')
 else:
